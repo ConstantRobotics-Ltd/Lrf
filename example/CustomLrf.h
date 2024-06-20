@@ -38,7 +38,7 @@ public:
      * @param initString Init string. Format depends on lrf controller.
      * @return TRUE if the lrf controller is init or FALSE.
      */
-    bool openLrf(std::string initString);
+    bool openLrf(std::string initString) override;
 
     /**
      * @brief Init lrf controller by structure. Can be used instead
@@ -46,25 +46,25 @@ public:
      * @param params Lrf params class.
      * @return TRUE if the lrf controller is init or FALSE.
      */
-    bool initLrf(LrfParams& params);
+    bool initLrf(LrfParams& params) override;
 
     /**
      * @brief Close connection.
      */
-    void closeLrf();
+    void closeLrf() override;
 
     /**
      * @brief Get lrf open status.
      * @return TRUE if the lrf is open or FALSE.
      */
-    bool isLrfOpen();
+    bool isLrfOpen() override;
 
     /**
      * @brief Get lrf connection status. Lrf can be open but no response from
      * lrf hardware.
      * @return TRUE if the lrf is open or FALSE.
      */
-    bool isLrfConnected();
+    bool isLrfConnected() override;
 
     /**
      * @brief Set the lrf controller param.
@@ -72,27 +72,27 @@ public:
      * @param value Param value.
      * @return TRUE if the property set or FALSE.
      */
-    bool setParam(LrfParam id, float value);
+    bool setParam(LrfParam id, float value) override;
 
     /**
      * @brief Get the lrf controller param.
      * @param id Param ID.
      * @return float Param value or -1 of the param not exists.
      */
-    float getParam(LrfParam id);
+    float getParam(LrfParam id) override;
 
     /**
      * @brief Get the lrf controller params.
      * @param params Reference to LrfParams object.
      */
-    void getParams(LrfParams& params);
+    void getParams(LrfParams& params) override;
 
     /**
      * @brief Execute lrf command.
      * @param id Command ID.
      * @return TRUE if the command executed or FALSE.
      */
-    bool executeCommand(LrfCommand id);
+    bool executeCommand(LrfCommand id) override;
 
     /**
      * @brief Decode and execute command.
@@ -100,11 +100,11 @@ public:
      * @param size Size of data.
      * @return TRUE if command decoded and executed or FALSE if not.
      */
-    bool decodeAndExecuteCommand(uint8_t* data, int size);
+    bool decodeAndExecuteCommand(uint8_t* data, int size) override;
 
 private:
 
-    /// Lrf parameters.
+    // Parameters class.
     LrfParams m_params;
 };
 }

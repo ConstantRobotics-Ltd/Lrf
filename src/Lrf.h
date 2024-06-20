@@ -1,5 +1,6 @@
 #pragma once
-#include <string>
+#include <string.h>
+#include <cstdint>
 #include <cstdint>
 #include "ConfigReader.h"
 #include "LrfVersion.h"
