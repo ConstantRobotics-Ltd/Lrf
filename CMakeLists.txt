@@ -30,8 +30,8 @@ endif()
 ## project configuration
 ################################################################################
 SET(${PARENT}_LRF                            ON  CACHE BOOL "" ${REWRITE_FORCE})
-SET(${PARENT}_LRF_TEST                       OFF CACHE BOOL "" ${REWRITE_FORCE})
-SET(${PARENT}_LRF_EXAMPLE                    OFF CACHE BOOL "" ${REWRITE_FORCE})
+SET(${PARENT}_LRF_TEST                       ON  CACHE BOOL "" ${REWRITE_FORCE})
+SET(${PARENT}_LRF_EXAMPLE                    ON  CACHE BOOL "" ${REWRITE_FORCE})
 
 
 

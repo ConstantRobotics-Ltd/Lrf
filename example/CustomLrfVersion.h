@@ -1,0 +1,7 @@
+#pragma once
+
+#define CUSTOM_LRF_MAJOR_VERSION 1
+#define CUSTOM_LRF_MINOR_VERSION 0
+#define CUSTOM_LRF_PATCH_VERSION 0
+
+#define CUSTOM_LRF_VERSION "1.0.0"

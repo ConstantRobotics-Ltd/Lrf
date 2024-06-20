@@ -1,105 +1,98 @@
 #pragma once
 #include <string>
 #include <cstdint>
-#include "Lens.h"
+#include "Lrf.h"
+#include "CustomLrfVersion.h"
 
 
 
 namespace cr
 {
-namespace lens
+namespace lrf
 {
 /**
- * @brief Custom lens controller interface class.
+ * @brief Custom lrf controller.
  */
-class CustomLens: public Lens
+class CustomLrf: public Lrf
 {
 public:
 
     /**
      * @brief Class constructor.
      */
-    CustomLens();
+    CustomLrf();
 
     /**
      * @brief Class destructor.
      */
-    ~CustomLens();
+    ~CustomLrf();
 
     /**
-     * @brief Get lens class version.
-     * @return Lens class version string in format "Major.Minor.Patch".
+     * @brief Get class version.
+     * @return Class version string in format "Major.Minor.Patch".
      */
     static std::string getVersion();
 
     /**
-     * @brief Open lens controller. Can be used instead initLens(...) method.
-     * @param initString Init string. Format depends on lens controller.
-     * @return TRUE if the lens controller is init or FALSE.
+     * @brief Open lrf controller. Can be used instead initLrf(...) method.
+     * @param initString Init string. Format depends on lrf controller.
+     * @return TRUE if the lrf controller is init or FALSE.
      */
-    bool openLens(std::string initString);
+    bool openLrf(std::string initString);
 
     /**
-     * @brief Init lens controller by structure. Can be used instead
-     * openLens(...) method.
-     * @param initString Init string. Format depends on lens controller.
-     * @return TRUE if the lens controller is init or FALSE.
+     * @brief Init lrf controller by structure. Can be used instead
+     * openLrf(...) method.
+     * @param params Lrf params class.
+     * @return TRUE if the lrf controller is init or FALSE.
      */
-    bool initLens(LensParams& params);
+    bool initLrf(LrfParams& params);
 
     /**
      * @brief Close connection.
      */
-    void closeLens();
+    void closeLrf();
 
     /**
-     * @brief Get lens open status.
-     * @return TRUE if the lens is open or FALSE.
+     * @brief Get lrf open status.
+     * @return TRUE if the lrf is open or FALSE.
      */
-    bool isLensOpen();
+    bool isLrfOpen();
 
     /**
-     * @brief Get lens connection status. Lens can be open but no response from
-     * lens hardware.
-     * @return TRUE if the lens is open or FALSE.
+     * @brief Get lrf connection status. Lrf can be open but no response from
+     * lrf hardware.
+     * @return TRUE if the lrf is open or FALSE.
      */
-    bool isLensConnected();
+    bool isLrfConnected();
 
     /**
-     * @brief Set the lens controller param.
+     * @brief Set the lrf controller param.
      * @param id Param ID.
      * @param value Param value.
      * @return TRUE if the property set or FALSE.
      */
-    bool setParam(LensParam id, float value);
+    bool setParam(LrfParam id, float value);
 
     /**
-     * @brief Get the lens controller param.
+     * @brief Get the lrf controller param.
      * @param id Param ID.
      * @return float Param value or -1 of the param not exists.
      */
-    float getParam(LensParam id);
+    float getParam(LrfParam id);
 
     /**
-     * @brief Get the lens controller params.
-     * @param params Reference to LensParams object.
+     * @brief Get the lrf controller params.
+     * @param params Reference to LrfParams object.
      */
-    void getParams(LensParams& params);
+    void getParams(LrfParams& params);
 
     /**
-     * @brief Execute command.
+     * @brief Execute lrf command.
      * @param id Command ID.
-     * @param arg Command argument.
      * @return TRUE if the command executed or FALSE.
      */
-    bool executeCommand(LensCommand id, float arg = 0);
-
-    /**
-     * @brief Add video frame for auto focus purposes. Some lens controllers
-     * may not support this functions.
-     * @param frame Video frame object.
-     */
-    void addVideoFrame(cr::video::Frame& frame);
+    bool executeCommand(LrfCommand id);
 
     /**
      * @brief Decode and execute command.
@@ -111,8 +104,8 @@ public:
 
 private:
 
-    /// Lens parameters structure (Default params).
-    LensParams m_params;
+    /// Lrf parameters.
+    LrfParams m_params;
 };
 }
 }

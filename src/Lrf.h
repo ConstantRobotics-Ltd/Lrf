@@ -250,10 +250,9 @@ public:
     /**
      * @brief Execute lrf command.
      * @param id Command ID.
-     * @param arg Command argument.
      * @return TRUE if the command executed or FALSE.
      */
-    virtual bool executeCommand(LrfCommand id, float arg = 0) = 0;
+    virtual bool executeCommand(LrfCommand id) = 0;
 
     /**
      * @brief Encode set param command.

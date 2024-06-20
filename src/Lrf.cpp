@@ -182,7 +182,7 @@ bool LrfParams::decode(uint8_t* data, int dataSize)
         data[2] != LRF_MINOR_VERSION)
         return false;
 
-    int pos = 10;
+    int pos = 6;
     if ((data[3] & (uint8_t)128) == (uint8_t)128)
     {
         if (dataSize < pos + 4)
@@ -439,8 +439,8 @@ int Lrf::decodeCommand(uint8_t* data, int size, LrfParam& paramId, LrfCommand& c
             return -1;
         int id = 0;
         memcpy(&id, &data[3], 4);
-        paramId = (LrfParam)id;
-        return 1;
+        commandId = (LrfCommand)id;
+        return 0;
     }
     else if (data[0] == 0x01)
     {
