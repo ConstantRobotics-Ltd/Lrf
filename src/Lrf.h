@@ -202,7 +202,7 @@ public:
     virtual bool openLrf(std::string initString) = 0;
 
     /**
-     * @brief Init lrf controller by structure. Can be used instead
+     * @brief Init lrf controller by set of parameters. Can be used instead
      * openLrf(...) method.
      * @param params Lrf params class.
      * @return TRUE if the lrf controller is init or FALSE.

@@ -4,7 +4,7 @@
 
 # **Lrf interface C++ library**
 
-**v1.0.0**
+**v1.0.1**
 
 
 
@@ -44,7 +44,7 @@
 
 # Overview
 
-**Lrf** C++ library provides standard interface as well defines data structures and rules for different laser range finder (LRF) software controllers. **Lrf** interface class doesn't do anything, just provides interface and provides methods to encode / decode commands and encode / decode params. Different LRF controllers inherit interface form **Lrf** C++ class. **Lrf.h** file contains list of data structures ([LrfCommand](#lrfcommand-enum) enum, [LrfParam](#lrfparam-enum) enum and [LrfParams](#lrfparams-class-description) class) and [Lrf](#lrf-interface-class-description) class declaration. [LrfCommand](#lrfcommand-enum) enum contains IDs of action commands supported by [Lrf](#lrf-interface-class-description) class. [LrfParam](#lrfparam-enum) enum contains IDs of parameters supported by **Lrf** class. [LrfParams](#lrfparam-enum) class contains fields for LRF parameters values and provides methods to encode/decode and read/write LRF parameters from JSON file. All LRF controllers should include params and commands listed in **Lrf.h** file. **Lrf** interface class depends only on [ConfigReader](https://rapidpixel.constantrobotics.com/docs/service-libraries/config-reader.html) library (provides methods to read / write JSON config files, source code included, Apache 2.0 license). It uses C++17 standard. The library is licensed under the **Apache 2.0** license.
+**Lrf** C++ library provides standard interface as well defines data structures and rules for different laser range finder (LRF) software controllers. **Lrf** interface class does nothing, just provides interface and provides methods to encode / decode commands and encode / decode params. Different LRF controllers inherit interface form **Lrf** C++ class. **Lrf.h** file contains list of data structures ([LrfCommand](#lrfcommand-enum) enum, [LrfParam](#lrfparam-enum) enum and [LrfParams](#lrfparams-class-description) class) and [Lrf](#lrf-interface-class-description) class declaration. [LrfCommand](#lrfcommand-enum) enum contains IDs of action commands supported by **Lrf** class. [LrfParam](#lrfparam-enum) enum contains IDs of parameters supported by **Lrf** class. [LrfParams](#lrfparam-enum) class contains fields for LRF parameters values and provides methods to encode/decode and read/write LRF parameters from JSON file. All LRF controllers should include params and commands listed in **Lrf.h** file. **Lrf** interface class depends only on [ConfigReader](https://rapidpixel.constantrobotics.com/docs/service-libraries/config-reader.html) library (provides methods to read / write JSON config files, source code included, Apache 2.0 license). It uses C++17 standard. The library is licensed under the **Apache 2.0** license.
 
 
 
@@ -55,6 +55,7 @@
 | Version | Release date | What's new                                          |
 | ------- | ------------ | --------------------------------------------------- |
 | 1.0.0   | 20.06.2024   | First version                                       |
+| 1.0.1   | 30.07.2024   | - CMake updated.                                    |
 
 
 
@@ -95,6 +96,10 @@ src ------------------------ Folder with source code of the library.
 **Lrf** interface class declared in **Lrf.h** file. Class declaration:
 
 ```cpp
+namespace cr
+{
+namespace lrf
+{
 class Lrf
 {
 public:
@@ -108,7 +113,7 @@ public:
     /// Open lrf controller.
     virtual bool openLrf(std::string initString) = 0;
 
-    /// Init lrf controller by structure.
+    /// Init lrf controller by set of parameters.
     virtual bool initLrf(LrfParams& params) = 0;
 
     /// Close connection.
@@ -144,16 +149,18 @@ public:
         uint8_t* data, int size, LrfParam& paramId,
         LrfCommand& commandId, float& value);
 
-    /// Decode and execute command.
+    ///  Decode and execute command.
     virtual bool decodeAndExecuteCommand(uint8_t* data, int size) = 0;
 };
+}
+}
 ```
 
 
 
 ## getVersion method
 
-The **getVersion()** method returns string of current class version. LRF controller can have it's own **getVersion()** method. Method declaration:
+The **getVersion()** method returns string of current class version. Particular LRF controller can have it's own **getVersion()** method. Method declaration:
 
 ```cpp
 static std::string getVersion();
@@ -191,7 +198,7 @@ virtual bool openLrf(std::string initString) = 0;
 
 ## initLrf method
 
-The **initLrf(...)** method initializes LRF controller by list of parameters. This method can be used instead of [openLrf(...)](#openlrf-method) method ([LrfParams](#lrfparams-class-description) class includes **initString**) when you need initialize LRF controller with not default parameters. LRF controller should establish connection to LRF hardware and should set necessary parameters according to given [LrfParams](#lrfparams-class-description). Method declaration:
+The **initLrf(...)** method initializes LRF controller by set of parameters. This method can be used instead of [openLrf(...)](#openlrf-method) method ([LrfParams](#lrfparams-class-description) class includes **initString**) when you need initialize LRF controller with not default parameters. LRF controller should establish connection to LRF hardware and should set necessary parameters according to given [LrfParams](#lrfparams-class-description). Method declaration:
 
 ```cpp
 virtual bool initLrf(LrfParams& params) = 0;
@@ -223,7 +230,7 @@ The **isLrfOpen()** method returns LRF initialization status. Open status shows 
 virtual bool isLrfOpen() = 0;
 ```
 
-**Returns:** TRUE is the LRF controller initialized or FALSE if not.
+**Returns:** TRUE is the LRF controller is initialized or FALSE if not.
 
 
 
@@ -274,7 +281,7 @@ virtual float getParam(LrfParam id) = 0;
 
 ## getParams method
 
-The **getParams(...)** method designed to obtain LRF parameters. LRF controller must provide thread-safe **getParams(...)** method call. This means that the **getParams(...)** method can be safely called from any thread. Method declaration:
+The **getParams(...)** method designed to obtain all LRF parameters. LRF controller must provide thread-safe **getParams(...)** method call. This means that the **getParams(...)** method can be safely called from any thread. Method declaration:
 
 ```cpp
 virtual void getParams(LrfParams& params) = 0;
@@ -332,7 +339,7 @@ Lrf::encodeSetParamCommand(data, size, LrfParam::OPERATING_MODE, 1);
 
 ## encodeCommand method
 
-The **encodeCommand(...)** static method designed to encode LRF action command (COMMAND). To control a LRF remotely, the developer has to develop his own protocol and according to it encode the command and deliver it over the communication channel. To simplify this, the **Lrf** class contains static methods for encoding the control command. The **Lrf** class provides two types of commands: a parameter change command (SET_PARAM) and an action command (COMMAND). **encodeCommand(...)** designed to encode COMMAND command (action command). Method declaration:
+The **encodeCommand(...)** static method designed to encode LRF action command (COMMAND). To control a LRF remotely, the developer has to develop his own protocol and according to it encode the command and deliver it over the communication channel. To simplify this, the **Lrf** class contains static methods for encoding the control command. The **Lrf** class provides two types of commands: a parameter change command (SET_PARAM) and an action command (COMMAND). **encodeCommand(...)** designed to encode COMMAND (action command). Method declaration:
 
 ```cpp
 static void encodeCommand(uint8_t* data, int& size, LrfCommand id);
@@ -341,7 +348,7 @@ static void encodeCommand(uint8_t* data, int& size, LrfCommand id);
 | Parameter | Description                                                  |
 | --------- | ------------------------------------------------------------ |
 | data      | Pointer to data buffer for encoded command. Must have size >= 7. |
-| size      | Size of encoded data. Will be 11 bytes.                      |
+| size      | Size of encoded data. Will be 7 bytes.                      |
 | id        | Command ID according to [LrfCommand](#lrfcommand-enum) enum. |
 
 **encodeCommand(...)** is static and used without **Lrf** class instance. This method used on client side (control system). Encoding example:
@@ -368,7 +375,7 @@ static int decodeCommand(uint8_t* data, int size, LrfParam& paramId, LrfCommand&
 | Parameter | Description                                                  |
 | --------- | ------------------------------------------------------------ |
 | data      | Pointer to input command.                                    |
-| size      | Size of command. Should be 11 bytes.                         |
+| size      | Size of command. Should be 11 bytes for SET_PARAM and 7 bytes for COMMAND. |
 | paramId   | LRF parameter ID according to [LrfParam](#lrfparam-enum) enum. After decoding SET_PARAM command the method will return parameter ID. |
 | commandId | LRF command ID according to [LrfCommand](#lrfcommand-enum) enum. After decoding COMMAND the method will return command ID. |
 | value     | LRF parameter value after decoding SET_PARAM command. |
@@ -403,6 +410,10 @@ virtual bool decodeAndExecuteCommand(uint8_t* data, int size) = 0;
 **LrfCommand** enum describes action LRF command. All commands must be supported by LRF controller. Enum declaration:
 
 ```cpp
+namespace cr
+{
+namespace lrf
+{
 enum class LrfCommand
 {
     /// Arm.
@@ -412,9 +423,11 @@ enum class LrfCommand
     /// Measure distance once.
     MEASURE_DISTANCE_ONCE
 };
+}
+}
 ```
 
-**Table 2** - LRF commands description. Some commands may be unsupported by LRF controller.
+**Table 2** - LRF action commands description. Some commands may be unsupported by LRF controller.
 
 | Command               | Description                                          |
 | --------------------- | ---------------------------------------------------- |
@@ -429,6 +442,10 @@ enum class LrfCommand
 **LrfParam** enum describes LRF parameters. Enum declaration:
 
 ```cpp
+namespace cr
+{
+namespace lrf
+{
 enum class LrfParam
 {
     /// [Read only] Current measured distance, meters.
@@ -468,6 +485,8 @@ enum class LrfParam
     /// Custom parameter 3. Depends on implementation.
     CUSTOM_3
 };
+}
+}
 ```
 
 **Table 3** - LRF params description. Some params may be unsupported by LRF controller.
@@ -476,18 +495,18 @@ enum class LrfParam
 | ----------------------------- | ------------ | ------------------------------------------------------------ |
 | DISTANCE                      | read only    | Current measured distance, meters. LRF controller should keep this value until distance update. |
 | TIME_FROM_LAST_MEASUREMENT_US | read only    | Time from last measurement, microseconds. Used to control how old last measurement. |
-| LOW_POWER_MODE                | read / write | Low power mode. Values depends on LRF controller. Default: 0 - OFF. |
-| POINTER_MODE                  | read / write | Laser pointer mode: 0 - OFF, 1 - ON, 2 - ON timeout (turn off automatically after timeout). |
+| LOW_POWER_MODE                | read / write | Low power mode. Values depends on LRF controller. Default: **0** - OFF. |
+| POINTER_MODE                  | read / write | Laser pointer mode: **0** - OFF, **1** - ON, **2** - ON timeout (turn off automatically after timeout). |
 | POINTER_MODE_TIMEOUT_SEC      | read / write | Pointer mode timeout, sec.                                   |
-| ARM_MODE                      | read / write | Arm mode: 0 - Disarmed, 1 - armed.                           |
-| OPERATING_MODE                | read / write | Operating mode: 0 - OFF, 1 - Stand-by-mode, 2 - Normal mode. |
-| CONTINUOUS_MEASURING_MODE     | read / write | Continuous measuring mode: 0 - Stop, 1 - 0.5Hz, 2 - 1 - 1Hz, 3 - 3Hz, 4 - 5Hz, 5 - 10Hz. |
-| CONTINUOUS_MODE_TIMEOUT_SEC   | read / write | Continuous mode timeout, sec. Turn off measurements after timeout. |
-| LOG_MODE                      | read / write | Logging mode: 0 - Disabled, 1 - Console, 2 - File, 3 - Console and file. |
-| IS_OPEN                       | read only    | Open status: 0 - not init (not open), 1 - open (init). Open status shows if the LRF controller initialized but doesn't show if LRF controller has communication with LRF equipment. For example, if LRF has serial port LRF controller connects to serial port (opens serial port file in OS) but LRF can be not active (no power). In this case open status just shows that LRF controller has opened serial port. |
-| IS_CONNECTED                  | read only    | Connection status: 0 - no responses from LRF hardware, 1 - connected. Connection status shows if the LRF controller has data exchange with LRF equipment. For example, if LRF has serial port LRF controller connects to serial port (opens serial port file in OS) but LRF can be not active (no power). In this case connection status shows that LRF controller doesn't have data exchange with LRF equipment. If LRF controller has data exchange with LRF equipment status will be 1. If LRF controller not initialize the connection status always 0. |
-| MIN_GATE_DISTANCE             | read / write | Min gate distance, meters. If parameter > 0 the LRF controller must ignore measured distance < MIN_GATE_DISTANCE. |
-| MAX_GATE_DISTANCE             | read / write | Max gate distance, meters. If parameter > 0 the LRF controller must ignore measured distance > MAX_GATE_DISTANCE. |
+| ARM_MODE                      | read / write | Arm mode: **0** - Disarmed, **1** - armed.                   |
+| OPERATING_MODE                | read / write | Operating mode. Default values: **0** - OFF, **1** - Stand-by-mode, **2** - Normal mode. |
+| CONTINUOUS_MEASURING_MODE     | read / write | Continuous measuring mode. Default values: **0** - Stop, **1** - 0.5Hz, **2** - 1Hz, **3** - 3Hz, **4** - 5Hz, **5** - 10Hz. |
+| CONTINUOUS_MODE_TIMEOUT_SEC   | read / write | Continuous mode timeout, sec. Turn off measurements after timeout. If **0** - no timeout. |
+| LOG_MODE                      | read / write | Logging mode: **0** - Disabled, **1** - Console, **2** - File, **3** - Console and file. |
+| IS_OPEN                       | read only    | Open status: **0** - not init (not open), **1** - open (init). Open status shows if the LRF controller initialized but doesn't show if LRF controller has communication with LRF equipment. For example, if LRF has serial port LRF controller connects to serial port (opens serial port file in OS) but LRF can be not active (no power). In this case open status just shows that LRF controller has opened serial port. |
+| IS_CONNECTED                  | read only    | Connection status: **0** - no responses from LRF hardware, **1** - connected. Connection status shows if the LRF controller has data exchange with LRF equipment. For example, if LRF has serial port LRF controller connects to serial port (opens serial port file in OS) but LRF can be not active (no power). In this case connection status shows that LRF controller doesn't have data exchange with LRF equipment. If LRF controller has data exchange with LRF equipment status will be **1**. If LRF controller not initialize the connection status always **0**. |
+| MIN_GATE_DISTANCE             | read / write | Min gate distance, meters. If parameter **> 0** the LRF controller must ignore measured distance **< MIN_GATE_DISTANCE**. |
+| MAX_GATE_DISTANCE             | read / write | Max gate distance, meters. If parameter **> 0** the LRF controller must ignore measured distance **> MAX_GATE_DISTANCE**. |
 | TEMPERATURE_DEG               | read only    | LRF temperature, degree.                                     |
 | CUSTOM_1                      | read / write | LRF custom parameter. Value depends on LRF controller. Custom parameters used when LRF equipment has specific unusual parameter. |
 | CUSTOM_2                      | read / write | LRF custom parameter. Value depends on LRF controller. Custom parameters used when LRF equipment has specific unusual parameter. |
@@ -506,6 +525,10 @@ enum class LrfParam
 **LrfParams** interface class declared in **Lrf.h** file. Class declaration:
 
 ```cpp
+namespace cr
+{
+namespace lrf
+{
 class LrfParams
 {
 public:
@@ -563,27 +586,29 @@ public:
     /// Decode params.
     bool decode(uint8_t* data, int dataSize);
 };
+}
+}
 ```
 
 **Table 4** - LrfParams class fields description (equivalent to [LrfParam](#lrfparam-enum) enum description).
 
 | Field                     | type   | Description                                                  |
 | ------------------------- | ------ | ------------------------------------------------------------ |
-| initString                | string | Initialization string. LRF controller can have unique init string format. But it is recommended to use '**;**' symbol to divide parts of initialization string. Recommended initialization string format for controllers which uses serial port: **"/dev/ttyUSB0;9600;100"** ("/dev/ttyUSB0" - serial port name, "9600" - baudrate, "100" - serial port read timeout). |
-| distance                  | float  | Current measured distance, meters. LRF controller should keep this value until update distance. |
-| timeFromLastMeasurementUs | int    | Time from last measurement, us. Used to control how old last measurement. |
-| lowPowerMode              | int    | Low power mode. Values depends on LRF controller. Default: 0 - OFF. |
-| pointerMode               | int    | Laser pointer mode: 0 - OFF, 1 - ON, 2 - ON timeout (turn off automatically after timeout). |
+| initString                | string | Initialization string. LRF controller can have unique init string format. But it is recommended to use '**;**' symbol to divide parts of initialization string. Recommended initialization string format for controllers which uses serial port: **"/dev/ttyUSB0;9600;100"** ("/dev/ttyUSB0" - serial port name, "9600" - baudrate, "100" - serial port read timeout). The same initialization string is used in [openLrf(...)](#openlrf-method) method. |
+| distance                  | float  | Current measured distance, meters. LRF controller should keep this value until distance update. |
+| timeFromLastMeasurementUs | int    | Time from last measurement, microseconds. Used to control how old last measurement. |
+| lowPowerMode              | int    | Low power mode. Values depends on LRF controller. Default: **0** - OFF. |
+| pointerMode               | int    | Laser pointer mode: **0** - OFF, **1** - ON, **2** - ON timeout (turn off automatically after timeout). |
 | pointerModeTimeoutSec     | int    | Pointer mode timeout, sec.                                   |
-| armMode                   | int    | Arm mode: 0 - Disarmed, 1 - armed.                           |
-| operatingMode             | int    | Operating mode: 0 - OFF, 1 - Stand-by-mode, 2 - Normal mode. |
-| continuousMeasuringMode   | int    | Continuous measuring mode: 0 - Stop, 1 - 0.5Hz, 2 - 1 - 1Hz, 3 - 3Hz, 4 - 5Hz, 5 - 10Hz. |
-| continuousModeTimeoutSec  | int    | Continuous mode timeout, sec. Turn off measurements after timeout. |
-| logMode                   | int    | Logging mode: 0 - Disabled, 1 - Console, 2 - File, 3 - Console and file. |
-| isOpen                    | bool   | Open status: FALSE - not init (not open), TRUE - open (init). Open status shows if the LRF controller initialized but doesn't show if LRF controller has communication with LRF equipment. For example, if LRF has serial port LRF controller connects to serial port (opens serial port file in OS) but LRF can be not active (no power). In this case open status just shows that LRF controller has opened serial port. |
-| isConnected               | bool   | Connection status: FALSE - no responses from LRF hardware, TRUE - connected. Connection status shows if the LRF controller has data exchange with LRF equipment. For example, if LRF has serial port LRF controller connects to serial port (opens serial port file in OS) but LRF can be not active (no power). In this case connection status shows that LRF controller doesn't have data exchange with LRF equipment. If LRF controller has data exchange with LRF equipment status will be TRUE. If LRF controller not initialize the connection status always FALSE. |
-| minGateDistance           | float  | Min gate distance, meters. If parameter > 0 the LRF controller must ignore measured distance < minGateDistance. |
-| maxGateDistance           | float  | Max gate distance, meters. If parameter > 0 the LRF controller must ignore measured distance > maxGateDistance. |
+| armMode                   | int    | Arm mode: **0** - Disarmed, **1** - armed.                   |
+| operatingMode             | int    | Operating mode. Default values: **0** - OFF, **1** - Stand-by-mode, **2** - Normal mode. |
+| continuousMeasuringMode   | int    | Continuous measuring mode. Default values: **0** - Stop, **1** - 0.5Hz, **2** - 1Hz, **3** - 3Hz, **4** - 5Hz, **5** - 10Hz. |
+| continuousModeTimeoutSec  | int    | Continuous mode timeout, sec. Turn off measurements after timeout. If **0** - no timeout. |
+| logMode                   | int    | Logging mode: **0** - Disabled, **1** - Console, **2** - File, **3** - Console and file. |
+| isOpen                    | bool   | Open status: **FALSE** - not init (not open), **TRUE** - open (init). Open status shows if the LRF controller initialized but doesn't show if LRF controller has communication with LRF equipment. For example, if LRF has serial port LRF controller connects to serial port (opens serial port file in OS) but LRF can be not active (no power). In this case open status just shows that LRF controller has opened serial port. |
+| isConnected               | bool   | Connection status: **FALSE** - no responses from LRF hardware, **TRUE** - connected. Connection status shows if the LRF controller has data exchange with LRF equipment. For example, if LRF has serial port LRF controller connects to serial port (opens serial port file in OS) but LRF can be not active (no power). In this case connection status shows that LRF controller doesn't have data exchange with LRF equipment. If LRF controller has data exchange with LRF equipment status will be **TRUE**. If LRF controller not initialize the connection status always **FALSE**. |
+| minGateDistance           | float  | Min gate distance, meters. If parameter **> 0** the LRF controller must ignore measured distance **< minGateDistance**. |
+| maxGateDistance           | float  | Max gate distance, meters. If parameter **> 0** the LRF controller must ignore measured distance **> maxGateDistance**. |
 | temperatureDeg            | float  | LRF temperature, degree.                                     |
 | custom1                   | float  | LRF custom parameter. Value depends on LRF controller. Custom parameters used when LRF equipment has specific unusual parameter. |
 | custom2                   | float  | LRF custom parameter. Value depends on LRF controller. Custom parameters used when LRF equipment has specific unusual parameter. |
@@ -605,7 +630,7 @@ bool encode(uint8_t* data, int bufferSize, int& size, LrfParamsMask* mask = null
 | ---------- | ------------------------------------------------------------ |
 | data       | Pointer to data buffer.                                      |
 | size       | Size of encoded data.                                        |
-| bufferSize | Data buffer size. Buffer size must be >= 201 bytes.          |
+| bufferSize | Data buffer size. Buffer size must be >= 72 bytes.           |
 | mask       | Parameters mask - pointer to **LrfParamsMask** structure. **LrfParamsMask** (declared in **Lrf.h** file) determines flags for each field (parameter) declared in [LrfParams](#lrfparams-class-description) class. If the user wants to exclude any parameters from serialization, he can put a pointer to the mask. If the user wants to exclude a particular parameter from serialization, he should set the corresponding flag in the **LrfParamsMask** structure. |
 
 **LrfParamsMask** structure declaration:
@@ -731,17 +756,17 @@ if(!outConfig.get(out, "LrfParams"))
 ```json
 {
     "LrfParams": {
-        "continuousModeTimeoutSec": 0,
-        "custom1": 0.0,
-        "custom2": 0.0,
-        "custom3": 0.0,
-        "initString": "",
-        "logMode": 0,
-        "lowPowerMode": 0,
-        "maxGateDistance": 0.0,
-        "minGateDistance": 0.0,
-        "operatingMode": 0,
-        "pointerModeTimeoutSec": 0
+        "continuousModeTimeoutSec": 35,
+        "custom1": 2.490000009536743,
+        "custom2": 1.5,
+        "custom3": 2.5199999809265137,
+        "initString": "17108",
+        "logMode": 61,
+        "lowPowerMode": 226,
+        "maxGateDistance": 2.2300000190734863,
+        "minGateDistance": 0.38999998569488525,
+        "operatingMode": 207,
+        "pointerModeTimeoutSec": 180
     }
 }
 ```
@@ -753,12 +778,10 @@ if(!outConfig.get(out, "LrfParams"))
 Typical commands to build **Lrf** library:
 
 ```bash
-git clone https://github.com/ConstantRobotics-Ltd/Lrf.git
 cd Lrf
-git submodule update --init --recursive
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake ..
 make
 ```
 
@@ -772,15 +795,7 @@ src
     yourLib.cpp
 ```
 
-You can add repository **Lrf** as submodule by commands:
-
-```bash
-cd <your respository folder>
-git submodule add https://github.com/ConstantRobotics-Ltd/Lrf.git 3rdparty/Lrf
-git submodule update --init --recursive
-```
-
-In you repository folder will be created folder **3rdparty/Lrf** which contains files of **Lrf** repository with sub-repository **ConfigReader**. New structure of your repository:
+Create folder **3rdparty** in your repository folder and copy **Lrf** repository folder there. New structure of your repository:
 
 ```bash
 CMakeLists.txt
@@ -832,7 +847,7 @@ if (${PARENT}_SUBMODULE_LRF)
 endif()
 ```
 
-File **3rdparty/CMakeLists.txt** adds folder **Lrf** to your project and excludes test application and example (Lrf class test applications and example of custom LRF class implementation) from compiling. Your repository new structure will be:
+File **3rdparty/CMakeLists.txt** adds folder **Lrf** to your project and excludes test application and example (Lrf class test applications and example of custom LRF class implementation) from compiling (by default test application and example are excluded from compiling if **Lrf** included as sub-repository). Your repository new structure will be:
 
 ```bash
 CMakeLists.txt
@@ -866,6 +881,13 @@ Done!
 The **Lrf** class provides only an interface, data structures, and methods for encoding and decoding commands and params. To create your own implementation of the LRF controller, you must include the **Lrf** repository in your project (see [Build and connect to your project](#build-and-connect-to-your-project) section). The catalogue **example** (see [Library files](#library-files) section) includes an example of the design of the custom LRF controller. You must implement all the methods of the **Lrf** interface class. Custom LRF class declaration:
 
 ```cpp
+namespace cr
+{
+namespace lrf
+{
+/**
+ * @brief Custom lrf controller.
+ */
 class CustomLrf: public Lrf
 {
 public:
@@ -911,7 +933,9 @@ public:
 
 private:
 
-    /// Lrf parameters.
+    // Parameters class.
     LrfParams m_params;
 };
+}
+}
 ```

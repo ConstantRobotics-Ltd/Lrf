@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.13)
 ## INTERFACE-PROJECT
 ## name and version
 ###############################################################################
-project(Lrf VERSION 1.0.0 LANGUAGES CXX)
+project(Lrf VERSION 1.0.1 LANGUAGES CXX)
 
 
 
