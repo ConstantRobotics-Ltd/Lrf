@@ -726,7 +726,7 @@ if (!out.decode(data, size))
 
 ## Read params from JSON file and write to JSON file
 
-**Lrf** interface class library depends on [ConfigReader](https://rapidpixel.constantrobotics.com/docs/service-libraries/config-reader.html) library which provides method to read params from JSON file and to write params to JSON file. Example of writing and reading params to JSON file:
+**Lrf** interface class library depends on [ConfigReader](https://rapidpixel.constantrobotics.com/docs/Service/ConfigReader.html) library which provides method to read params from JSON file and to write params to JSON file. Example of writing and reading params to JSON file:
 
 ```cpp
 // Write default params to file.
