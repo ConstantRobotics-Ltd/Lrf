@@ -1,163 +1,218 @@
 #include "Lrf.h"
+#include <array>
+#include <cstdint>
+#include <cstring>
+#include <limits>
+#include <string>
 
 
 
-/// Link namespaces.
-using namespace std;
-using namespace cr::lrf;
-
-
-
-LrfParams& LrfParams::operator= (const LrfParams& src)
+namespace
 {
-    // Check yourself.
-    if (this == &src)
-        return *this;
+// Encoded data stores int and float fields as raw 4 bytes values.
+static_assert(sizeof(int) == 4, "int must be 4 bytes");
+static_assert(sizeof(float) == 4, "float must be 4 bytes");
+static_assert(std::numeric_limits<float>::is_iec559,
+              "float must be IEEE 754 binary32");
 
-    initString = src.initString;
-    distance = src.distance;
-    timeFromLastMeasurementUs = src.timeFromLastMeasurementUs;
-    lowPowerMode = src.lowPowerMode;
-    pointerMode = src.pointerMode;
-    pointerModeTimeoutSec = src.pointerModeTimeoutSec;
-    armMode = src.armMode;
-    operatingMode = src.operatingMode;
-    continuousMeasuringMode = src.continuousMeasuringMode;
-    continuousModeTimeoutSec = src.continuousModeTimeoutSec;
-    logMode = src.logMode;
-    isOpen = src.isOpen;
-    isConnected = src.isConnected;
-    minGateDistance = src.minGateDistance;
-    maxGateDistance = src.maxGateDistance;
-    temperatureDeg = src.temperatureDeg;
-    custom1 = src.custom1;
-    custom2 = src.custom2;
-    custom3 = src.custom3;
+/// Size of an int or float field in the encoded data, bytes.
+constexpr int VALUE_SIZE{4};
+/// Size of a bool field in the encoded data, bytes.
+constexpr int FLAG_SIZE{1};
+/// Number of LrfParams fields which are encoded (the same as the number of
+/// fields of LrfParamsMask).
+constexpr int FIELDS_NUMBER{18};
+/// Number of int and float fields which are encoded.
+constexpr int VALUES_NUMBER{16};
+/// Number of bool fields which are encoded.
+constexpr int FLAGS_NUMBER{2};
+static_assert(VALUES_NUMBER + FLAGS_NUMBER == FIELDS_NUMBER,
+              "wrong number of fields");
 
-    return *this;
+/// Data type of the encoded params. Commands use other data types.
+constexpr uint8_t PARAMS_DATA_TYPE{0x02};
+/// Position of the data type in the encoded data (the next two bytes are the
+/// major and the minor version of the library).
+constexpr int DATA_TYPE_POS{0};
+/// Position of the major version in the encoded data.
+constexpr int MAJOR_VERSION_POS{1};
+/// Position of the minor version in the encoded data.
+constexpr int MINOR_VERSION_POS{2};
+/// Position of the mask of the encoded fields in the encoded params.
+constexpr int PARAMS_MASK_POS{3};
+/// Size of the mask of the encoded fields, bytes. One bit per field, the first
+/// field is the most significant bit of the first byte.
+constexpr int PARAMS_MASK_SIZE{3};
+static_assert(FIELDS_NUMBER <= PARAMS_MASK_SIZE * 8,
+              "mask is too small for the fields");
+/// Size of the header of the encoded params: data type, version and mask.
+constexpr int PARAMS_HEADER_SIZE{PARAMS_MASK_POS + PARAMS_MASK_SIZE};
+/// Size of the encoded params with all fields selected. A buffer of this size
+/// is enough for any mask.
+constexpr int PARAMS_MAX_SIZE{PARAMS_HEADER_SIZE + VALUES_NUMBER * VALUE_SIZE +
+                              FLAGS_NUMBER * FLAG_SIZE};
+static_assert(PARAMS_MAX_SIZE == 72, "wrong size of encoded params");
+
+/// Data type of the encoded command.
+constexpr uint8_t COMMAND_DATA_TYPE{0x00};
+/// Data type of the encoded set param command.
+constexpr uint8_t SET_PARAM_DATA_TYPE{0x01};
+/// Position of the command ID or the param ID in the encoded command.
+constexpr int COMMAND_ID_POS{3};
+/// Position of the param value in the encoded set param command.
+constexpr int PARAM_VALUE_POS{COMMAND_ID_POS + VALUE_SIZE};
+/// Size of the encoded command: data type, version and command ID.
+constexpr int COMMAND_SIZE{COMMAND_ID_POS + VALUE_SIZE};
+/// Size of the encoded set param command: data type, version, param ID and
+/// param value.
+constexpr int SET_PARAM_SIZE{PARAM_VALUE_POS + VALUE_SIZE};
+
+/// Range of the command IDs: the IDs are enumerated from the first to the last
+/// value of LrfCommand. An ID read from the data outside of the range is an
+/// error, it is never passed on to the implementation.
+constexpr int MIN_COMMAND_ID{static_cast<int>(cr::lrf::LrfCommand::ARM)};
+constexpr int MAX_COMMAND_ID{
+    static_cast<int>(cr::lrf::LrfCommand::MEASURE_DISTANCE_ONCE)};
+/// Range of the param IDs: the IDs are enumerated from the first to the last
+/// value of LrfParam.
+constexpr int MIN_PARAM_ID{static_cast<int>(cr::lrf::LrfParam::DISTANCE)};
+constexpr int MAX_PARAM_ID{static_cast<int>(cr::lrf::LrfParam::CUSTOM_3)};
+
+
+
+/// Location of an LrfParams field in the encoded data.
+struct FieldRef
+{
+    /// Pointer to the field of an LrfParams object.
+    void* value{nullptr};
+    /// Size of the field in the encoded data: VALUE_SIZE or FLAG_SIZE.
+    int size{0};
+};
+
+
+
+/// Get the table of LrfParams fields in the order they are stored in the
+/// encoded data (the same order as the bits of the mask).
+std::array<FieldRef, FIELDS_NUMBER> makeFieldTable(cr::lrf::LrfParams& p)
+{
+    return {{
+        {&p.distance, VALUE_SIZE},
+        {&p.timeFromLastMeasurementUs, VALUE_SIZE},
+        {&p.lowPowerMode, VALUE_SIZE},
+        {&p.pointerMode, VALUE_SIZE},
+        {&p.pointerModeTimeoutSec, VALUE_SIZE},
+        {&p.armMode, VALUE_SIZE},
+        {&p.operatingMode, VALUE_SIZE},
+        {&p.continuousMeasuringMode, VALUE_SIZE},
+        {&p.continuousModeTimeoutSec, VALUE_SIZE},
+        {&p.logMode, VALUE_SIZE},
+        {&p.isOpen, FLAG_SIZE},
+        {&p.isConnected, FLAG_SIZE},
+        {&p.minGateDistance, VALUE_SIZE},
+        {&p.maxGateDistance, VALUE_SIZE},
+        {&p.temperatureDeg, VALUE_SIZE},
+        {&p.custom1, VALUE_SIZE},
+        {&p.custom2, VALUE_SIZE},
+        {&p.custom3, VALUE_SIZE}
+    }};
 }
 
 
 
-bool LrfParams::encode(uint8_t* data, int bufferSize, int& size, LrfParamsMask* mask)
+/// Get the flags of the mask in the same order as makeFieldTable(...).
+std::array<bool, FIELDS_NUMBER> makeMaskTable(
+    const cr::lrf::LrfParamsMask& m)
 {
-    // Check buffer size.
-    if (bufferSize < 69)
+    return {{
+        m.distance,
+        m.timeFromLastMeasurementUs,
+        m.lowPowerMode,
+        m.pointerMode,
+        m.pointerModeTimeoutSec,
+        m.armMode,
+        m.operatingMode,
+        m.continuousMeasuringMode,
+        m.continuousModeTimeoutSec,
+        m.logMode,
+        m.isOpen,
+        m.isConnected,
+        m.minGateDistance,
+        m.maxGateDistance,
+        m.temperatureDeg,
+        m.custom1,
+        m.custom2,
+        m.custom3
+    }};
+}
+
+
+
+/// Get the index of the byte of the mask which contains the bit of the field.
+constexpr int maskByteIndex(int field)
+{
+    return field / 8;
+}
+
+
+
+/// Get the bit of the field inside the byte of the mask.
+constexpr uint8_t maskBit(int field)
+{
+    return static_cast<uint8_t>(128U >> (field % 8));
+}
+}
+
+
+
+bool cr::lrf::LrfParams::encode(
+    uint8_t* data, int bufferSize, int& size, LrfParamsMask* mask)
+{
+    // Check the pointer and the buffer size: the buffer must be able to hold
+    // the data encoded with all fields, so nothing is written outside of it.
+    if (data == nullptr || bufferSize < PARAMS_MAX_SIZE)
+    {
+        size = 0;
         return false;
-
-    // Encode version.
-    int pos = 0;
-    data[pos] = 0x02; pos += 1;
-    data[pos] = LRF_MAJOR_VERSION; pos += 1;
-    data[pos] = LRF_MINOR_VERSION; pos += 1;
-
-    // Set mask.
-    LrfParamsMask defaultMask;
-    if (mask == nullptr)
-        mask = &defaultMask;
-    
-    // Prepare mask.
-    data[pos] = 0;
-    data[pos] = data[pos] | (mask->distance ? (uint8_t)128 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->timeFromLastMeasurementUs ? (uint8_t)64 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->lowPowerMode ? (uint8_t)32 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->pointerMode ? (uint8_t)16 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->pointerModeTimeoutSec ? (uint8_t)8 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->armMode ? (uint8_t)4 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->operatingMode ? (uint8_t)2 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->continuousMeasuringMode ? (uint8_t)1 : (uint8_t)0);
-    pos += 1;
-    data[pos] = 0;
-    data[pos] = data[pos] | (mask->continuousModeTimeoutSec ? (uint8_t)128 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->logMode ? (uint8_t)64 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->isOpen ? (uint8_t)32 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->isConnected ? (uint8_t)16 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->minGateDistance ? (uint8_t)8 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->maxGateDistance ? (uint8_t)4 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->temperatureDeg ? (uint8_t)2 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->custom1 ? (uint8_t)1 : (uint8_t)0);
-    pos += 1;
-    data[pos] = 0;
-    data[pos] = data[pos] | (mask->custom2 ? (uint8_t)128 : (uint8_t)0);
-    data[pos] = data[pos] | (mask->custom3 ? (uint8_t)64 : (uint8_t)0);
-    pos += 1;
-
-    // Encode data.
-    if (mask->distance)
-    {
-        memcpy(&data[pos], &distance, 4); pos += 4;
-    }
-    if (mask->timeFromLastMeasurementUs)
-    {
-        memcpy(&data[pos], &timeFromLastMeasurementUs, 4); pos += 4;
-    }
-    if (mask->lowPowerMode)
-    {
-        memcpy(&data[pos], &lowPowerMode, 4); pos += 4;
-    }
-    if (mask->pointerMode)
-    {
-        memcpy(&data[pos], &pointerMode, 4); pos += 4;
-    }
-    if (mask->pointerModeTimeoutSec)
-    {
-        memcpy(&data[pos], &pointerModeTimeoutSec, 4); pos += 4;
-    }
-    if (mask->armMode)
-    {
-        memcpy(&data[pos], &armMode, 4); pos += 4;
-    }
-    if (mask->operatingMode)
-    {
-        memcpy(&data[pos], &operatingMode, 4); pos += 4;
-    }
-    if (mask->continuousMeasuringMode)
-    {
-        memcpy(&data[pos], &continuousMeasuringMode, 4); pos += 4;
     }
 
+    // Encode data type and version.
+    data[DATA_TYPE_POS] = PARAMS_DATA_TYPE;
+    data[MAJOR_VERSION_POS] = static_cast<uint8_t>(LRF_MAJOR_VERSION);
+    data[MINOR_VERSION_POS] = static_cast<uint8_t>(LRF_MINOR_VERSION);
 
-    if (mask->continuousModeTimeoutSec)
+    // Prepare mask. All fields are encoded if the mask is not set.
+    const LrfParamsMask defaultMask;
+    const auto selected = makeMaskTable(mask != nullptr ? *mask : defaultMask);
+    std::memset(&data[PARAMS_MASK_POS], 0, PARAMS_MASK_SIZE);
+    for (int i = 0; i < FIELDS_NUMBER; ++i)
     {
-        memcpy(&data[pos], &continuousModeTimeoutSec, 4); pos += 4;
-    }
-    if (mask->logMode)
-    {
-        memcpy(&data[pos], &logMode, 4); pos += 4;
-    }
-    if (mask->isOpen)
-    {
-        data[pos] = isOpen ? 0x01 : 0x00; pos += 1;
-    }
-    if (mask->isConnected)
-    {
-        data[pos] = isConnected ? 0x01 : 0x00; pos += 1;
-    }
-    if (mask->minGateDistance)
-    {
-        memcpy(&data[pos], &minGateDistance, 4); pos += 4;
-    }
-    if (mask->maxGateDistance)
-    {
-        memcpy(&data[pos], &maxGateDistance, 4); pos += 4;
-    }
-    if (mask->temperatureDeg)
-    {
-        memcpy(&data[pos], &temperatureDeg, 4); pos += 4;
-    }
-    if (mask->custom1)
-    {
-        memcpy(&data[pos], &custom1, 4); pos += 4;
+        if (selected[static_cast<size_t>(i)])
+        {
+            const int index = PARAMS_MASK_POS + maskByteIndex(i);
+            data[index] = static_cast<uint8_t>(data[index] | maskBit(i));
+        }
     }
 
-
-    if (mask->custom2)
+    // Encode the selected fields.
+    const auto fields = makeFieldTable(*this);
+    int pos = PARAMS_HEADER_SIZE;
+    for (int i = 0; i < FIELDS_NUMBER; ++i)
     {
-        memcpy(&data[pos], &custom2, 4); pos += 4;
-    }
-    if (mask->custom3)
-    {
-        memcpy(&data[pos], &custom3, 4); pos += 4;
+        if (!selected[static_cast<size_t>(i)])
+        {
+            continue;
+        }
+        const FieldRef& field = fields[static_cast<size_t>(i)];
+        if (field.size == FLAG_SIZE)
+        {
+            data[pos] = *static_cast<const bool*>(field.value) ?
+                        static_cast<uint8_t>(0x01) : static_cast<uint8_t>(0x00);
+        }
+        else
+        {
+            std::memcpy(&data[pos], field.value, VALUE_SIZE);
+        }
+        pos += field.size;
     }
 
     size = pos;
@@ -167,289 +222,170 @@ bool LrfParams::encode(uint8_t* data, int bufferSize, int& size, LrfParamsMask* 
 
 
 
-bool LrfParams::decode(uint8_t* data, int dataSize)
+bool cr::lrf::LrfParams::decode(uint8_t* data, int dataSize)
 {
-    // Check data size.
-    if (dataSize < 6)
+    // Check the pointer, the data size (header must be complete) and the
+    // data type.
+    if (data == nullptr || dataSize < PARAMS_HEADER_SIZE)
+    {
         return false;
-
-    // Check header.
-    if (data[0] != 0x02)
+    }
+    if (data[DATA_TYPE_POS] != PARAMS_DATA_TYPE)
+    {
         return false;
+    }
 
     // Check version.
-    if (data[1] != LRF_MAJOR_VERSION ||
-        data[2] != LRF_MINOR_VERSION)
+    if (data[MAJOR_VERSION_POS] != LRF_MAJOR_VERSION ||
+        data[MINOR_VERSION_POS] != LRF_MINOR_VERSION)
+    {
         return false;
-
-    int pos = 6;
-    if ((data[3] & (uint8_t)128) == (uint8_t)128)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&distance, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        distance = 0.0f;
-    }
-    if ((data[3] & (uint8_t)64) == (uint8_t)64)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&timeFromLastMeasurementUs, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        timeFromLastMeasurementUs = 0;
-    }
-    if ((data[3] & (uint8_t)32) == (uint8_t)32)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&lowPowerMode, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        lowPowerMode = 0;
-    }
-    if ((data[3] & (uint8_t)16) == (uint8_t)16)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&pointerMode, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        pointerMode = 0;
-    }
-    if ((data[3] & (uint8_t)8) == (uint8_t)8)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&pointerModeTimeoutSec, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        pointerModeTimeoutSec = 0;
-    }
-    if ((data[3] & (uint8_t)4) == (uint8_t)4)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&armMode, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        armMode = 0;
-    }
-    if ((data[3] & (uint8_t)2) == (uint8_t)2)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&operatingMode, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        operatingMode = 0;
-    }
-    if ((data[3] & (uint8_t)1) == (uint8_t)1)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&continuousMeasuringMode, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        continuousMeasuringMode = 0;
     }
 
+    // Decode into a temporary object: this object is changed only if the
+    // whole data is valid. Fields not selected by the mask are set to zero.
+    LrfParams result;
+    const auto fields = makeFieldTable(result);
+    int pos = PARAMS_HEADER_SIZE;
+    for (int i = 0; i < FIELDS_NUMBER; ++i)
+    {
+        const FieldRef& field = fields[static_cast<size_t>(i)];
+        const bool encoded =
+            (data[PARAMS_MASK_POS + maskByteIndex(i)] & maskBit(i)) != 0;
+        if (!encoded)
+        {
+            std::memset(field.value, 0, static_cast<size_t>(field.size));
+            continue;
+        }
 
-    if ((data[4] & (uint8_t)128) == (uint8_t)128)
-    {
-        if (dataSize < pos + 4)
+        // Check that the field is inside the data (pos <= dataSize here).
+        if (dataSize - pos < field.size)
+        {
             return false;
-        memcpy(&continuousModeTimeoutSec, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        continuousModeTimeoutSec = 0;
-    }
-    if ((data[4] & (uint8_t)64) == (uint8_t)64)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&logMode, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        logMode = 0;
-    }
-    if ((data[4] & (uint8_t)32) == (uint8_t)32)
-    {
-        if (dataSize < pos + 1)
-            return false;
-        isOpen = data[pos] == 0x00 ? false : true; pos += 1;
-    }
-    else
-    {
-        isOpen = false;
-    }
-    if ((data[4] & (uint8_t)16) == (uint8_t)16)
-    {
-        if (dataSize < pos + 1)
-            return false;
-        isConnected = data[pos] == 0x00 ? false : true; pos += 1;
-    }
-    else
-    {
-        isConnected = false;
-    }
-    if ((data[4] & (uint8_t)8) == (uint8_t)8)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&minGateDistance, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        minGateDistance = 0.0f;
-    }
-    if ((data[4] & (uint8_t)4) == (uint8_t)4)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&maxGateDistance, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        maxGateDistance = 0.0f;
-    }
-    if ((data[4] & (uint8_t)2) == (uint8_t)2)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&temperatureDeg, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        temperatureDeg = 0.0f;
-    }
-    if ((data[4] & (uint8_t)1) == (uint8_t)1)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&custom1, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        custom1 = 0.0f;
+        }
+        if (field.size == FLAG_SIZE)
+        {
+            *static_cast<bool*>(field.value) = data[pos] != 0x00;
+        }
+        else
+        {
+            std::memcpy(field.value, &data[pos], VALUE_SIZE);
+        }
+        pos += field.size;
     }
 
-
-
-    if ((data[5] & (uint8_t)128) == (uint8_t)128)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&custom2, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        custom2 = 0.0f;
-    }
-    if ((data[5] & (uint8_t)64) == (uint8_t)64)
-    {
-        if (dataSize < pos + 4)
-            return false;
-        memcpy(&custom3, &data[pos], 4); pos += 4;
-    }
-    else
-    {
-        custom3 = 0.0f;
-    }
-    
-
-    initString = "";
+    *this = result;
 
     return true;
 }
 
 
 
-Lrf::~Lrf()
-{
-    
-}
+cr::lrf::Lrf::~Lrf() = default;
 
 
 
-std::string Lrf::getVersion()
+std::string cr::lrf::Lrf::getVersion()
 {
     return LRF_VERSION;
 }
 
 
 
-void Lrf::encodeSetParamCommand(uint8_t* data, int& size, LrfParam id, float value)
+void cr::lrf::Lrf::encodeSetParamCommand(
+    uint8_t* data, int& size, LrfParam id, float value)
 {
+    // Reject null pointer, nothing is written.
+    if (data == nullptr)
+    {
+        size = 0;
+        return;
+    }
+
     // Fill header.
-    data[0] = 0x01;
-    data[1] = LRF_MAJOR_VERSION;
-    data[2] = LRF_MINOR_VERSION;
+    data[DATA_TYPE_POS] = SET_PARAM_DATA_TYPE;
+    data[MAJOR_VERSION_POS] = static_cast<uint8_t>(LRF_MAJOR_VERSION);
+    data[MINOR_VERSION_POS] = static_cast<uint8_t>(LRF_MINOR_VERSION);
 
     // Fill data.
-    int paramId = (int)id;
-    memcpy(&data[3], &paramId, 4);
-    memcpy(&data[7], &value, 4);
-    size = 11;
+    const int paramId = static_cast<int>(id);
+    std::memcpy(&data[COMMAND_ID_POS], &paramId, VALUE_SIZE);
+    std::memcpy(&data[PARAM_VALUE_POS], &value, VALUE_SIZE);
+    size = SET_PARAM_SIZE;
 }
 
 
 
-void Lrf::encodeCommand(uint8_t* data, int& size, LrfCommand id)
+void cr::lrf::Lrf::encodeCommand(uint8_t* data, int& size, LrfCommand id)
 {
+    // Reject null pointer, nothing is written.
+    if (data == nullptr)
+    {
+        size = 0;
+        return;
+    }
+
     // Fill header.
-    data[0] = 0x00;
-    data[1] = LRF_MAJOR_VERSION;
-    data[2] = LRF_MINOR_VERSION;
+    data[DATA_TYPE_POS] = COMMAND_DATA_TYPE;
+    data[MAJOR_VERSION_POS] = static_cast<uint8_t>(LRF_MAJOR_VERSION);
+    data[MINOR_VERSION_POS] = static_cast<uint8_t>(LRF_MINOR_VERSION);
 
     // Fill data.
-    int commandId = (int)id;
-    memcpy(&data[3], &commandId, 4);
-    size = 7;
+    const int commandId = static_cast<int>(id);
+    std::memcpy(&data[COMMAND_ID_POS], &commandId, VALUE_SIZE);
+    size = COMMAND_SIZE;
 }
 
 
 
-int Lrf::decodeCommand(uint8_t* data, int size, LrfParam& paramId, LrfCommand& commandId, float& value)
+int cr::lrf::Lrf::decodeCommand(
+    uint8_t* data, int size, LrfParam& paramId,
+    LrfCommand& commandId, float& value)
 {
-    // Check size.
-    if (size < 7)
+    // Check pointer and size (header and ID must be complete).
+    if (data == nullptr || size < COMMAND_SIZE)
+    {
         return -1;
+    }
 
     // Check version.
-    if (data[1] != LRF_MAJOR_VERSION || data[2] != LRF_MINOR_VERSION)
-        return -1;
-
-    // Check command type.
-    if (data[0] == 0x00)
+    if (data[MAJOR_VERSION_POS] != LRF_MAJOR_VERSION ||
+        data[MINOR_VERSION_POS] != LRF_MINOR_VERSION)
     {
-        if (size != 7)
+        return -1;
+    }
+
+    // Check command type. Output arguments are changed only if the command is
+    // valid. Commands have a fixed size: a longer message is an error.
+    if (data[DATA_TYPE_POS] == COMMAND_DATA_TYPE)
+    {
+        if (size != COMMAND_SIZE)
+        {
             return -1;
+        }
         int id = 0;
-        memcpy(&id, &data[3], 4);
-        commandId = (LrfCommand)id;
+        std::memcpy(&id, &data[COMMAND_ID_POS], VALUE_SIZE);
+        if (id < MIN_COMMAND_ID || id > MAX_COMMAND_ID)
+        {
+            return -1;
+        }
+        commandId = static_cast<LrfCommand>(id);
         return 0;
     }
-    else if (data[0] == 0x01)
+    if (data[DATA_TYPE_POS] == SET_PARAM_DATA_TYPE)
     {
-        if (size != 11)
+        if (size != SET_PARAM_SIZE)
+        {
             return -1;
+        }
         int id = 0;
-        memcpy(&id, &data[3], 4);
-        paramId = (LrfParam)id;
-        memcpy(&value, &data[7], 4);
+        std::memcpy(&id, &data[COMMAND_ID_POS], VALUE_SIZE);
+        if (id < MIN_PARAM_ID || id > MAX_PARAM_ID)
+        {
+            return -1;
+        }
+        paramId = static_cast<LrfParam>(id);
+        std::memcpy(&value, &data[PARAM_VALUE_POS], VALUE_SIZE);
         return 1;
     }
 

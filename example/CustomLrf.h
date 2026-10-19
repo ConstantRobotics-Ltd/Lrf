@@ -1,6 +1,7 @@
 #pragma once
-#include <string>
 #include <cstdint>
+#include <mutex>
+#include <string>
 #include "Lrf.h"
 #include "CustomLrfVersion.h"
 
@@ -12,6 +13,9 @@ namespace lrf
 {
 /**
  * @brief Custom lrf controller.
+ *
+ * The class keeps the params in memory and has no hardware. All methods are
+ * thread-safe: params are protected by a mutex.
  */
 class CustomLrf: public Lrf
 {
@@ -25,7 +29,29 @@ public:
     /**
      * @brief Class destructor.
      */
-    ~CustomLrf();
+    ~CustomLrf() override;
+
+    /**
+     * @brief Copy constructor. The class owns a mutex: copying is deleted.
+     */
+    CustomLrf(const CustomLrf&) = delete;
+
+    /**
+     * @brief Move constructor. The class owns a mutex: moving is deleted.
+     */
+    CustomLrf(CustomLrf&&) = delete;
+
+    /**
+     * @brief Copy assignment. The class owns a mutex: copying is deleted.
+     * @return Reference to this object.
+     */
+    CustomLrf& operator= (const CustomLrf&) = delete;
+
+    /**
+     * @brief Move assignment. The class owns a mutex: moving is deleted.
+     * @return Reference to this object.
+     */
+    CustomLrf& operator= (CustomLrf&&) = delete;
 
     /**
      * @brief Get class version.
@@ -35,7 +61,8 @@ public:
 
     /**
      * @brief Open lrf controller. Can be used instead initLrf(...) method.
-     * @param initString Init string. Format depends on lrf controller.
+     * @param initString Init string. Format depends on lrf controller. The
+     * example does not use it.
      * @return TRUE if the lrf controller is init or FALSE.
      */
     bool openLrf(std::string initString) override;
@@ -43,7 +70,10 @@ public:
     /**
      * @brief Init lrf controller by structure. Can be used instead
      * openLrf(...) method.
-     * @param params Lrf params class.
+     * @param params Lrf params class. Values of the params are checked: if a
+     * value is out of its range the method returns FALSE and the controller
+     * is not changed. Read only params (distance, time from last measurement
+     * and temperature) are not set from outside.
      * @return TRUE if the lrf controller is init or FALSE.
      */
     bool initLrf(LrfParams& params) override;
@@ -62,15 +92,17 @@ public:
     /**
      * @brief Get lrf connection status. Lrf can be open but no response from
      * lrf hardware.
-     * @return TRUE if the lrf is open or FALSE.
+     * @return TRUE if the lrf is connected or FALSE.
      */
     bool isLrfConnected() override;
 
     /**
      * @brief Set the lrf controller param.
      * @param id Param ID.
-     * @param value Param value.
-     * @return TRUE if the property set or FALSE.
+     * @param value Param value. The value must be inside the range of the
+     * param (see Lrf.h), NaN and infinity are rejected.
+     * @return TRUE if the param set or FALSE (read only param, unknown ID or
+     * value out of range). The param is not changed if FALSE is returned.
      */
     bool setParam(LrfParam id, float value) override;
 
@@ -90,7 +122,7 @@ public:
     /**
      * @brief Execute lrf command.
      * @param id Command ID.
-     * @return TRUE if the command executed or FALSE.
+     * @return TRUE if the command executed or FALSE (unknown ID).
      */
     bool executeCommand(LrfCommand id) override;
 
@@ -104,8 +136,10 @@ public:
 
 private:
 
-    // Parameters class.
+    /// Parameters. Protected by m_mutex.
     LrfParams m_params;
+    /// Mutex to protect m_params.
+    std::mutex m_mutex;
 };
 }
 }

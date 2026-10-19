@@ -4,7 +4,7 @@
 
 # **Lrf interface C++ library**
 
-**v1.0.1**
+**v1.0.2**
 
 
 
@@ -38,13 +38,17 @@
   - [Deserialize LRF params](#deserialize-lrf-params)
   - [Read params from JSON file and write to JSON file](#read-params-from-json-file-and-write-to-json-file)
 - [Build and connect to your project](#build-and-connect-to-your-project)
+  - [Build stand alone](#build-stand-alone)
+  - [CMake options](#cmake-options)
+  - [Connect to your project](#connect-to-your-project)
 - [How to make custom implementation](#how-to-make-custom-implementation)
+- [Portability](#portability)
 
 
 
 # Overview
 
-**Lrf** C++ library provides standard interface as well defines data structures and rules for different laser range finder (LRF) software controllers. **Lrf** interface class does nothing, just provides interface and provides methods to encode / decode commands and encode / decode params. Different LRF controllers inherit interface form **Lrf** C++ class. **Lrf.h** file contains list of data structures ([LrfCommand](#lrfcommand-enum) enum, [LrfParam](#lrfparam-enum) enum and [LrfParams](#lrfparams-class-description) class) and [Lrf](#lrf-interface-class-description) class declaration. [LrfCommand](#lrfcommand-enum) enum contains IDs of action commands supported by **Lrf** class. [LrfParam](#lrfparam-enum) enum contains IDs of parameters supported by **Lrf** class. [LrfParams](#lrfparam-enum) class contains fields for LRF parameters values and provides methods to encode/decode and read/write LRF parameters from JSON file. All LRF controllers should include params and commands listed in **Lrf.h** file. **Lrf** interface class depends only on [ConfigReader](https://rapidpixel.constantrobotics.com/docs/Service/ConfigReader.html) library (provides methods to read / write JSON config files, source code included, Apache 2.0 license). It uses C++17 standard. The library is licensed under the **Apache 2.0** license.
+**Lrf** C++ library provides standard interface as well defines data structures and rules for different laser range finder (LRF) software controllers. **Lrf** interface class does nothing, just provides interface and provides methods to encode / decode commands and encode / decode params. Different LRF controllers inherit interface from **Lrf** C++ class. **Lrf.h** file contains list of data structures ([LrfCommand](#lrfcommand-enum) enum, [LrfParam](#lrfparam-enum) enum and [LrfParams](#lrfparams-class-description) class) and [Lrf](#lrf-interface-class-description) class declaration. [LrfCommand](#lrfcommand-enum) enum contains IDs of action commands supported by **Lrf** class. [LrfParam](#lrfparam-enum) enum contains IDs of parameters supported by **Lrf** class. [LrfParams](#lrfparams-class-description) class contains fields for LRF parameters values and provides methods to encode/decode and read/write LRF parameters from JSON file. All LRF controllers should include params and commands listed in **Lrf.h** file. **Lrf** interface class depends only on [ConfigReader](https://rapidpixel.constantrobotics.com/docs/Service/ConfigReader.html) library (provides methods to read / write JSON config files). The **ConfigReader** library must be cloned next to the **Lrf** repository (see [Build and connect to your project](#build-and-connect-to-your-project) section). It uses C++17 standard.
 
 
 
@@ -56,6 +60,7 @@
 | ------- | ------------ | --------------------------------------------------- |
 | 1.0.0   | 20.06.2024   | First version                                       |
 | 1.0.1   | 30.07.2024   | - CMake updated.                                    |
+| 1.0.2   | 19.10.2026   | - Git submodules removed: the ConfigReader library must be cloned next to the Lrf repository.<br />- LrfParams::encode(...): the buffer size is checked against the maximum size of the encoded data (72 bytes). The check used 69 bytes, so up to 3 bytes were written outside of a buffer of 69 - 71 bytes. The size is set to 0 if the method fails.<br />- LrfParams::decode(...): the object is not changed if the data is invalid.<br />- Null pointers are rejected by encode(...), decode(...), encodeCommand(...), encodeSetParamCommand(...) and decodeCommand(...).<br />- decodeCommand(...) returns -1 for command and param IDs outside of the LrfCommand and LrfParam enums.<br />- Serialization code of LrfParams made table driven (encoded data is not changed).<br />- Warning and security compiler and linker options added to CMake files, the MSVC linker option /MANIFEST:NO is set for MSVC only.<br />- CustomLrf example is thread-safe and validates values.<br />- Test application extended: deterministic, leaves no files, returns non-zero exit code on failure.<br />- Documentation updated. |
 
 
 
@@ -65,9 +70,6 @@ The library supplied by source code only. The user would be given a set of files
 
 ```xml
 CMakeLists.txt ------------- Main CMake file of the library.
-3rdparty ------------------- Folder with third-party libraries.
-    CMakeLists.txt --------- CMake file to include third-party libraries.
-    ConfigReader ----------- Folder with ConfigReader library source code.
 example -------------------- Folder with an example LRF controller.
     CMakeLists.txt --------- CMake file for example of LRF controller.
     CustomLrf.cpp ---------- C++ implementation file.
@@ -149,8 +151,25 @@ public:
         uint8_t* data, int size, LrfParam& paramId,
         LrfCommand& commandId, float& value);
 
-    ///  Decode and execute command.
+    /// Decode and execute command.
     virtual bool decodeAndExecuteCommand(uint8_t* data, int size) = 0;
+
+protected:
+
+    /// Default constructor. The class can be used as a base only.
+    Lrf() = default;
+
+    /// Copy constructor.
+    Lrf(const Lrf& src) = default;
+
+    /// Move constructor.
+    Lrf(Lrf&& src) = default;
+
+    /// Copy assignment.
+    Lrf& operator= (const Lrf& src) = default;
+
+    /// Move assignment.
+    Lrf& operator= (Lrf&& src) = default;
 };
 }
 }
@@ -175,7 +194,7 @@ std::cout << "Lrf class version: " << Lrf::getVersion() << std::endl;
 Console output:
 
 ```bash
-Lrf class version: 1.0.0
+Lrf class version: 1.0.2
 ```
 
 
@@ -319,8 +338,8 @@ static void encodeSetParamCommand(uint8_t* data, int& size, LrfParam id, float v
 
 | Parameter | Description                                                  |
 | --------- | ------------------------------------------------------------ |
-| data      | Pointer to data buffer for encoded command. Must have size >= 11. |
-| size      | Size of encoded data. Will be 11 bytes.                      |
+| data      | Pointer to data buffer for encoded command. Must not be nullptr. Must have size >= 11. |
+| size      | Size of encoded data. Will be 11 bytes (0 if **data** is nullptr: nothing is written in this case). |
 | id        | Parameter ID according to [LrfParam](#lrfparam-enum) enum.   |
 | value     | Parameter value.                                             |
 
@@ -347,8 +366,8 @@ static void encodeCommand(uint8_t* data, int& size, LrfCommand id);
 
 | Parameter | Description                                                  |
 | --------- | ------------------------------------------------------------ |
-| data      | Pointer to data buffer for encoded command. Must have size >= 7. |
-| size      | Size of encoded data. Will be 7 bytes.                      |
+| data      | Pointer to data buffer for encoded command. Must not be nullptr. Must have size >= 7. |
+| size      | Size of encoded data. Will be 7 bytes (0 if **data** is nullptr: nothing is written in this case). |
 | id        | Command ID according to [LrfCommand](#lrfcommand-enum) enum. |
 
 **encodeCommand(...)** is static and used without **Lrf** class instance. This method used on client side (control system). Encoding example:
@@ -374,13 +393,13 @@ static int decodeCommand(uint8_t* data, int size, LrfParam& paramId, LrfCommand&
 
 | Parameter | Description                                                  |
 | --------- | ------------------------------------------------------------ |
-| data      | Pointer to input command.                                    |
-| size      | Size of command. Should be 11 bytes for SET_PARAM and 7 bytes for COMMAND. |
+| data      | Pointer to input command. Must not be nullptr.               |
+| size      | Size of command. Must be 11 bytes for SET_PARAM and 7 bytes for COMMAND (a message of another size is an error). |
 | paramId   | LRF parameter ID according to [LrfParam](#lrfparam-enum) enum. After decoding SET_PARAM command the method will return parameter ID. |
 | commandId | LRF command ID according to [LrfCommand](#lrfcommand-enum) enum. After decoding COMMAND the method will return command ID. |
 | value     | LRF parameter value after decoding SET_PARAM command. |
 
-**Returns:** **0** - in case decoding COMMAND (action command), **1** - in case decoding SET_PARAM command or **-1** in case errors.
+**Returns:** **0** - in case decoding COMMAND (action command), **1** - in case decoding SET_PARAM command or **-1** in case errors (data is nullptr, wrong size, version or command type, ID outside of the [LrfCommand](#lrfcommand-enum) or [LrfParam](#lrfparam-enum) enum). The output arguments are changed only if the command is decoded.
 
 
 
@@ -462,7 +481,8 @@ enum class LrfParam
     ARM_MODE,
     /// Operating mode: 0 - OFF, 1 - Stand-by-mode, 2 - Normal mode.
     OPERATING_MODE,
-    /// Continuous measuring mode: 0 - Stop, 1 - 0.5Hz, 2 - 1 - 1Hz, 3 - 3Hz, 4 - 5Hz, 5 - 10Hz.
+    /// Continuous measuring mode: 0 - Stop, 1 - 0.5Hz, 2 - 1Hz, 3 - 3Hz,
+    /// 4 - 5Hz, 5 - 10Hz.
     CONTINUOUS_MEASURING_MODE,
     /// Continuous mode timeout, sec.
     CONTINUOUS_MODE_TIMEOUT_SEC,
@@ -532,7 +552,7 @@ namespace lrf
 class LrfParams
 {
 public:
-    
+
     /// Initialization string. Format depends on implementation.
     std::string initString;
     /// Current measured distance, meters.
@@ -549,7 +569,8 @@ public:
     int armMode{0};
     /// Operating mode: 0 - OFF, 1 - Stand-by-mode, 2 - Normal mode.
     int operatingMode{0};
-    /// Continuous measuring mode: 0 - Stop, 1 - 0.5Hz, 2 - 1 - 1Hz, 3 - 3Hz, 4 - 5Hz, 5 - 10Hz.
+    /// Continuous measuring mode: 0 - Stop, 1 - 0.5Hz, 2 - 1Hz, 3 - 3Hz,
+    /// 4 - 5Hz, 5 - 10Hz.
     int continuousMeasuringMode{0};
     /// Continuous mode timeout, sec.
     int continuousModeTimeoutSec{0};
@@ -576,14 +597,20 @@ public:
                   operatingMode, continuousModeTimeoutSec, logMode,
                   minGateDistance, maxGateDistance, custom1, custom2, custom3)
 
-    /// operator =
-    LrfParams& operator= (const LrfParams& src);
+    /// Default constructor.
+    LrfParams() = default;
 
-    /// Encode params.
+    /// Copy constructor.
+    LrfParams(const LrfParams& src) = default;
+
+    /// operator =
+    LrfParams& operator= (const LrfParams& src) = default;
+
+    /// Encode (serialize) params.
     bool encode(uint8_t* data, int bufferSize, int& size,
                 LrfParamsMask* mask = nullptr);
 
-    /// Decode params.
+    /// Decode (deserialize) params.
     bool decode(uint8_t* data, int dataSize);
 };
 }
@@ -614,7 +641,7 @@ public:
 | custom2                   | float  | LRF custom parameter. Value depends on LRF controller. Custom parameters used when LRF equipment has specific unusual parameter. |
 | custom3                   | float  | LRF custom parameter. Value depends on LRF controller. Custom parameters used when LRF equipment has specific unusual parameter. |
 
-**None:** *LrfParams class fields listed in Table 4 **must** reflect params set/get by methods setParam(...) and getParam(...).*
+**Note:** *LrfParams class fields listed in Table 4 **must** reflect params set/get by methods setParam(...) and getParam(...).*
 
 
 
@@ -628,10 +655,12 @@ bool encode(uint8_t* data, int bufferSize, int& size, LrfParamsMask* mask = null
 
 | Parameter  | Value                                                        |
 | ---------- | ------------------------------------------------------------ |
-| data       | Pointer to data buffer.                                      |
-| size       | Size of encoded data.                                        |
-| bufferSize | Data buffer size. Buffer size must be >= 72 bytes.           |
-| mask       | Parameters mask - pointer to **LrfParamsMask** structure. **LrfParamsMask** (declared in **Lrf.h** file) determines flags for each field (parameter) declared in [LrfParams](#lrfparams-class-description) class. If the user wants to exclude any parameters from serialization, he can put a pointer to the mask. If the user wants to exclude a particular parameter from serialization, he should set the corresponding flag in the **LrfParamsMask** structure. |
+| data       | Pointer to data buffer. Must not be nullptr.                 |
+| size       | Size of encoded data. Set to 0 if the method returns FALSE.  |
+| bufferSize | Data buffer size. Buffer size must be >= 72 bytes (the size of the data encoded with all fields). |
+| mask       | Parameters mask - pointer to **LrfParamsMask** structure. **LrfParamsMask** (declared in **Lrf.h** file) determines flags for each field (parameter) declared in [LrfParams](#lrfparams-class-description) class. If the user wants to exclude any parameters from serialization, he can put a pointer to the mask. If the user wants to exclude a particular parameter from serialization, he should set the corresponding flag in the **LrfParamsMask** structure to FALSE. If the pointer is nullptr all fields are encoded. |
+
+**Returns:** TRUE if params encoded or FALSE if not (**data** is nullptr or the buffer is too small). If FALSE is returned nothing is written to the buffer.
 
 **LrfParamsMask** structure declaration:
 
@@ -667,8 +696,12 @@ LrfParams in;
 in.logMode = 3;
 uint8_t data[1024];
 int size = 0;
-in.encode(data, 1024, size);
-cout << "Encoded data size: " << size << " bytes" << endl;
+if (!in.encode(data, 1024, size))
+{
+    std::cout << "Can't encode data" << std::endl;
+    return false;
+}
+std::cout << "Encoded data size: " << size << " bytes" << std::endl;
 ```
 
 Example with parameters mask:
@@ -685,15 +718,19 @@ mask.logMode = false; // Exclude logMode. Others by default.
 // Encode.
 uint8_t data[1024];
 int size = 0;
-in.encode(data, 1024, size, &mask);
-cout << "Encoded data size: " << size << " bytes" << endl;
+if (!in.encode(data, 1024, size, &mask))
+{
+    std::cout << "Can't encode data" << std::endl;
+    return false;
+}
+std::cout << "Encoded data size: " << size << " bytes" << std::endl;
 ```
 
 
 
 ## Deserialize LRF params
 
-[LrfParams](#lrfparams-class-description) class provides method **decode(...)** to deserialize LRF params (fields of [LrfParams](#lrfparams-class-description) class, see Table 4). Deserialization of LRF params necessary in case when you need to receive LRF params via communication channels. Method automatically recognizes which parameters were serialized by **encode(...)** method. Method doesn't decode fields: **initString**. Method declaration:
+[LrfParams](#lrfparams-class-description) class provides method **decode(...)** to deserialize LRF params (fields of [LrfParams](#lrfparams-class-description) class, see Table 4). Deserialization of LRF params necessary in case when you need to receive LRF params via communication channels. Method automatically recognizes which parameters were serialized by **encode(...)** method. Method doesn't decode fields: **initString** (it is set to empty string). Parameters which were not serialized are set to zero (FALSE for flags). A flag is TRUE if its byte is not zero. Bytes after the last serialized parameter are ignored. The values of the parameters are not checked against any range. Method declaration:
 
 ```cpp
 bool decode(uint8_t* data, int dataSize);
@@ -701,10 +738,10 @@ bool decode(uint8_t* data, int dataSize);
 
 | Parameter | Value                   |
 | --------- | ----------------------- |
-| data      | Pointer to data buffer. |
+| data      | Pointer to data buffer. Must not be nullptr. |
 | dataSize  | Size of data.           |
 
-**Returns:** TRUE if data decoded (deserialized) or FALSE if not.
+**Returns:** TRUE if data decoded (deserialized) or FALSE if not (**data** is nullptr, wrong data type or version, the data is shorter than the mask requires). If FALSE is returned the object is not changed.
 
 Example:
 
@@ -713,40 +750,51 @@ Example:
 LrfParams in;
 uint8_t data[1024];
 int size = 0;
-in.encode(data, 1024, size);
-cout << "Encoded data size: " << size << " bytes" << endl;
+if (!in.encode(data, 1024, size))
+{
+    std::cout << "Can't encode data" << std::endl;
+    return false;
+}
+std::cout << "Encoded data size: " << size << " bytes" << std::endl;
 
 // Decode data.
 LrfParams out;
 if (!out.decode(data, size))
-    cout << "Can't decode data" << endl;
+{
+    std::cout << "Can't decode data" << std::endl;
+    return false;
+}
 ```
 
 
 
 ## Read params from JSON file and write to JSON file
 
-**Lrf** interface class library depends on [ConfigReader](https://rapidpixel.constantrobotics.com/docs/Service/ConfigReader.html) library which provides method to read params from JSON file and to write params to JSON file. Example of writing and reading params to JSON file:
+**Lrf** interface class library depends on [ConfigReader](https://rapidpixel.constantrobotics.com/docs/Service/ConfigReader.html) library which provides method to read params from JSON file and to write params to JSON file. Only the fields listed in the **JSON_READABLE** macro (see [LrfParams class declaration](#lrfparams-class-declaration)) are stored. The JSON document must contain all of these fields with values of the right types. If a field is missing or has a wrong type the **get(...)** method returns FALSE and the params are not changed. Example of writing and reading params to JSON file:
 
 ```cpp
 // Write default params to file.
 LrfParams in;
 cr::utils::ConfigReader inConfig;
-inConfig.set(in, "LrfParams");
-inConfig.writeToFile("TestLrfParams.json");
+if (!inConfig.set(in, "LrfParams") ||
+    !inConfig.writeToFile("TestLrfParams.json"))
+{
+    std::cout << "Can't write config file" << std::endl;
+    return false;
+}
 
 // Read params from file.
 cr::utils::ConfigReader outConfig;
-if(!outConfig.readFromFile("TestLrfParams.json"))
+if (!outConfig.readFromFile("TestLrfParams.json"))
 {
-    cout << "Can't open config file" << endl;
+    std::cout << "Can't open config file" << std::endl;
     return false;
 }
 // Parse params.
 LrfParams out;
-if(!outConfig.get(out, "LrfParams"))
+if (!outConfig.get(out, "LrfParams"))
 {
-    cout << "Can't read params from file" << endl;
+    std::cout << "Can't read params from file" << std::endl;
     return false;
 }
 ```
@@ -756,17 +804,17 @@ if(!outConfig.get(out, "LrfParams"))
 ```json
 {
     "LrfParams": {
-        "continuousModeTimeoutSec": 35,
-        "custom1": 2.490000009536743,
-        "custom2": 1.5,
-        "custom3": 2.5199999809265137,
-        "initString": "17108",
-        "logMode": 61,
-        "lowPowerMode": 226,
-        "maxGateDistance": 2.2300000190734863,
-        "minGateDistance": 0.38999998569488525,
-        "operatingMode": 207,
-        "pointerModeTimeoutSec": 180
+        "initString": "",
+        "lowPowerMode": 0,
+        "pointerModeTimeoutSec": 0,
+        "operatingMode": 0,
+        "continuousModeTimeoutSec": 0,
+        "logMode": 0,
+        "minGateDistance": 0.0,
+        "maxGateDistance": 0.0,
+        "custom1": 0.0,
+        "custom2": 0.0,
+        "custom3": 0.0
     }
 }
 ```
@@ -775,9 +823,23 @@ if(!outConfig.get(out, "LrfParams"))
 
 # Build and connect to your project
 
-Typical commands to build **Lrf** library:
+
+
+## Build stand alone
+
+The repository does not contain sub-repositories. The **ConfigReader** library which **Lrf** depends on must be cloned into the same folder as **Lrf**. The folder structure must be:
 
 ```bash
+<work folder>
+    Lrf
+    ConfigReader
+```
+
+Typical commands to build the library, the test application and the example (use the URLs of the repositories provided to you):
+
+```bash
+git clone <Lrf repository URL>
+git clone <ConfigReader repository URL>
 cd Lrf
 mkdir build
 cd build
@@ -785,7 +847,27 @@ cmake ..
 make
 ```
 
-If you want connect **Lrf** library to your CMake project as source code you can make follow. For example, if your repository has structure:
+On Windows use `cmake --build . --config Release` instead of `make`. If **Lrf** is the top-level CMake project, the main CMakeLists.txt file adds the folder ../ConfigReader before the library itself. If the folder does not exist CMake stops with an error.
+
+
+
+## CMake options
+
+**Table 5** - CMake options of the repository. In the options below ${PARENT} is the prefix defined by the top-level project (empty if **Lrf** is the top-level project).
+
+| Option | Default | Description |
+| ------ | ------- | ----------- |
+| ${PARENT}_LRF | ON | Build the library. |
+| ${PARENT}_LRF_TEST | ON (stand alone), OFF (included in other project) | Build the test application. |
+| ${PARENT}_LRF_EXAMPLE | ON (stand alone), OFF (included in other project) | Build the example. |
+| ${PARENT}_SUBMODULE_CACHE_OVERWRITE | ON | Forced rewriting of the options above in the CMake cache. The top-level project sets it to OFF when it includes **Lrf** as a sub-repository. |
+| CMAKE_BUILD_TYPE | Release (if not specified) | Build type. |
+
+
+
+## Connect to your project
+
+If you want to connect **Lrf** library to your CMake project as source code you can make follow. **Lrf** does not add its dependencies when it is included in another project: your project must add the **ConfigReader** library by itself, before **Lrf**. If the **ConfigReader** library is not added the compilation stops with the error "ConfigReader.h: No such file or directory". For example, if your repository has structure:
 
 ```bash
 CMakeLists.txt
@@ -795,7 +877,7 @@ src
     yourLib.cpp
 ```
 
-Create folder **3rdparty** in your repository folder and copy **Lrf** repository folder there. New structure of your repository:
+Create folder **3rdparty** in your repository folder and copy **Lrf** and **ConfigReader** repository folders there. Structure of your repository after that:
 
 ```bash
 CMakeLists.txt
@@ -805,6 +887,7 @@ src
     yourLib.cpp
 3rdparty
     Lrf
+    ConfigReader
 ```
 
 Create CMakeLists.txt file in **3rdparty** folder. CMakeLists.txt should contain:
@@ -831,6 +914,13 @@ SET(${PARENT}_SUBMODULE_CACHE_OVERWRITE OFF CACHE BOOL "" FORCE)
 ## CONFIGURATION
 ## 3rd-party submodules configuration
 ################################################################################
+SET(${PARENT}_SUBMODULE_CONFIG_READER                   ON  CACHE BOOL "" FORCE)
+if (${PARENT}_SUBMODULE_CONFIG_READER)
+    SET(${PARENT}_CONFIG_READER                         ON  CACHE BOOL "" FORCE)
+    SET(${PARENT}_CONFIG_READER_EXAMPLES                OFF CACHE BOOL "" FORCE)
+    SET(${PARENT}_CONFIG_READER_TESTS                   OFF CACHE BOOL "" FORCE)
+endif()
+
 SET(${PARENT}_SUBMODULE_LRF                             ON  CACHE BOOL "" FORCE)
 if (${PARENT}_SUBMODULE_LRF)
     SET(${PARENT}_LRF                                   ON  CACHE BOOL "" FORCE)
@@ -842,12 +932,16 @@ endif()
 ## INCLUDING SUBDIRECTORIES
 ## Adding subdirectories according to the 3rd-party configuration
 ################################################################################
+if (${PARENT}_SUBMODULE_CONFIG_READER)
+    add_subdirectory(ConfigReader)
+endif()
+
 if (${PARENT}_SUBMODULE_LRF)
     add_subdirectory(Lrf)
 endif()
 ```
 
-File **3rdparty/CMakeLists.txt** adds folder **Lrf** to your project and excludes test application and example (Lrf class test applications and example of custom LRF class implementation) from compiling (by default test application and example are excluded from compiling if **Lrf** included as sub-repository). Your repository new structure will be:
+File **3rdparty/CMakeLists.txt** adds folders **ConfigReader** and **Lrf** (in this order) to your project and excludes test applications and examples (Lrf class test application and example of custom LRF class implementation) from compiling (by default test applications and examples are excluded from compiling if the libraries are included as sub-repositories). Structure of your repository will be:
 
 ```bash
 CMakeLists.txt
@@ -858,6 +952,7 @@ src
 3rdparty
     CMakeLists.txt
     Lrf
+    ConfigReader
 ```
 
 Next you need include folder 3rdparty in main **CMakeLists.txt** file of your repository. Add string at the end of your main **CMakeLists.txt**:
@@ -878,7 +973,7 @@ Done!
 
 # How to make custom implementation
 
-The **Lrf** class provides only an interface, data structures, and methods for encoding and decoding commands and params. To create your own implementation of the LRF controller, you must include the **Lrf** repository in your project (see [Build and connect to your project](#build-and-connect-to-your-project) section). The catalogue **example** (see [Library files](#library-files) section) includes an example of the design of the custom LRF controller. You must implement all the methods of the **Lrf** interface class. Custom LRF class declaration:
+The **Lrf** class provides only an interface, data structures, and methods for encoding and decoding commands and params. To create your own implementation of the LRF controller, you must include the **Lrf** repository in your project (see [Connect to your project](#connect-to-your-project) section). The catalogue **example** (see [Library files](#library-files) section) includes an example of the design of the custom LRF controller. You must implement all the methods of the **Lrf** interface class. The methods **setParam(...)**, **getParam(...)**, **getParams(...)**, **executeCommand(...)** and **decodeAndExecuteCommand(...)** must be thread-safe: the example protects the params by a mutex. The example checks the values received from outside (the param value, the command ID, the initialization params) and rejects values out of the range of the param. Custom LRF class declaration:
 
 ```cpp
 namespace cr
@@ -896,7 +991,13 @@ public:
     CustomLrf();
 
     /// Class destructor.
-    ~CustomLrf();
+    ~CustomLrf() override;
+
+    /// Copy and move are deleted: the class owns a mutex.
+    CustomLrf(const CustomLrf&) = delete;
+    CustomLrf(CustomLrf&&) = delete;
+    CustomLrf& operator= (const CustomLrf&) = delete;
+    CustomLrf& operator= (CustomLrf&&) = delete;
 
     /// Get class version.
     static std::string getVersion();
@@ -933,9 +1034,15 @@ public:
 
 private:
 
-    // Parameters class.
+    /// Parameters. Protected by m_mutex.
     LrfParams m_params;
+    /// Mutex to protect m_params.
+    std::mutex m_mutex;
 };
 }
 }
 ```
+
+# Portability
+
+The encoded data of the [LrfParams](#lrfparams-class-description) class and the encoded commands store **int** and **float** values as raw 4-byte values in the byte order of the host. The sizes of **int** and **float** (4 bytes) and the IEEE 754 format of **float** are checked at compile time. The library has been built and run with GCC 11 and GCC 12 on x86-64 and with the GCC 11 cross compiler for AArch64 (the test application was run under an emulator). Both processor families are little-endian.

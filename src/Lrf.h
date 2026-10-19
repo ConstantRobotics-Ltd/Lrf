@@ -1,7 +1,6 @@
 #pragma once
-#include <string.h>
 #include <cstdint>
-#include <cstdint>
+#include <string>
 #include "ConfigReader.h"
 #include "LrfVersion.h"
 
@@ -13,6 +12,9 @@ namespace lrf
 {
 /**
  * @brief Enum of laser range finder params.
+ *
+ * @note CUSTOM_3 is the last value: Lrf::decodeCommand(...) uses it to check
+ * the param ID. Keep it the last value when new params are added.
 */
 enum class LrfParam
 {
@@ -30,7 +32,8 @@ enum class LrfParam
     ARM_MODE,
     /// Operating mode: 0 - OFF, 1 - Stand-by-mode, 2 - Normal mode.
     OPERATING_MODE,
-    /// Continuous measuring mode: 0 - Stop, 1 - 0.5Hz, 2 - 1 - 1Hz, 3 - 3Hz, 4 - 5Hz, 5 - 10Hz.
+    /// Continuous measuring mode: 0 - Stop, 1 - 0.5Hz, 2 - 1Hz, 3 - 3Hz,
+    /// 4 - 5Hz, 5 - 10Hz.
     CONTINUOUS_MEASURING_MODE,
     /// Continuous mode timeout, sec.
     CONTINUOUS_MODE_TIMEOUT_SEC,
@@ -58,6 +61,10 @@ enum class LrfParam
 
 /**
  * @brief Enum of laser range finder commands.
+ *
+ * @note MEASURE_DISTANCE_ONCE is the last value: Lrf::decodeCommand(...) uses
+ * it to check the command ID. Keep it the last value when new commands are
+ * added.
 */
 enum class LrfCommand
 {
@@ -72,27 +79,48 @@ enum class LrfCommand
 
 
 /**
- * @brief Laser range finder params class.
+ * @brief Mask of laser range finder params.
+ *
+ * Each flag enables serialization of the LrfParams field with the same name
+ * (see LrfParams::encode(...)).
  */
 typedef struct LrfParamsMask
 {
+    /// Serialize distance.
     bool distance{true};
+    /// Serialize timeFromLastMeasurementUs.
     bool timeFromLastMeasurementUs{true};
+    /// Serialize lowPowerMode.
     bool lowPowerMode{true};
+    /// Serialize pointerMode.
     bool pointerMode{true};
+    /// Serialize pointerModeTimeoutSec.
     bool pointerModeTimeoutSec{true};
+    /// Serialize armMode.
     bool armMode{true};
+    /// Serialize operatingMode.
     bool operatingMode{true};
+    /// Serialize continuousMeasuringMode.
     bool continuousMeasuringMode{true};
+    /// Serialize continuousModeTimeoutSec.
     bool continuousModeTimeoutSec{true};
+    /// Serialize logMode.
     bool logMode{true};
+    /// Serialize isOpen.
     bool isOpen{true};
+    /// Serialize isConnected.
     bool isConnected{true};
+    /// Serialize minGateDistance.
     bool minGateDistance{true};
+    /// Serialize maxGateDistance.
     bool maxGateDistance{true};
+    /// Serialize temperatureDeg.
     bool temperatureDeg{true};
+    /// Serialize custom1.
     bool custom1{true};
+    /// Serialize custom2.
     bool custom2{true};
+    /// Serialize custom3.
     bool custom3{true};
 } LrfParamsMask;
 
@@ -100,11 +128,18 @@ typedef struct LrfParamsMask
 
 /**
  * @brief Laser range finder params class.
+ *
+ * The values of the fields are only stored and transported by the class: they
+ * are not checked against any range. The laser range finder implementation
+ * must validate them before use.
+ *
+ * @note The class is not thread-safe: an object must not be accessed from
+ * several threads at the same time without external synchronization.
  */
 class LrfParams
 {
 public:
-    
+
     /// Initialization string. Format depends on implementation.
     std::string initString;
     /// Current measured distance, meters.
@@ -121,7 +156,8 @@ public:
     int armMode{0};
     /// Operating mode: 0 - OFF, 1 - Stand-by-mode, 2 - Normal mode.
     int operatingMode{0};
-    /// Continuous measuring mode: 0 - Stop, 1 - 0.5Hz, 2 - 1 - 1Hz, 3 - 3Hz, 4 - 5Hz, 5 - 10Hz.
+    /// Continuous measuring mode: 0 - Stop, 1 - 0.5Hz, 2 - 1Hz, 3 - 3Hz,
+    /// 4 - 5Hz, 5 - 10Hz.
     int continuousMeasuringMode{0};
     /// Continuous mode timeout, sec.
     int continuousModeTimeoutSec{0};
@@ -149,27 +185,58 @@ public:
                   minGateDistance, maxGateDistance, custom1, custom2, custom3)
 
     /**
+     * @brief Default constructor.
+     */
+    LrfParams() = default;
+
+    /**
+     * @brief Copy constructor.
+     * @param src Source object.
+     */
+    LrfParams(const LrfParams& src) = default;
+
+    /**
      * @brief operator =
      * @param src Source object.
      * @return LrfParams object.
      */
-    LrfParams& operator= (const LrfParams& src);
+    LrfParams& operator= (const LrfParams& src) = default;
 
     /**
-     * @brief Encode params. The method doesn't encode initString.
-     * @param data Pointer to data buffer.
-     * @param size Size of data.
-     * @param mask Pointer to params mask.
-     * @return TRUE if params encoded or FALSE if not.
+     * @brief Encode (serialize) params. The method doesn't encode initString.
+     *
+     * Encoded data contains: data type (1 byte), major and minor version of
+     * the library (2 bytes), mask of the encoded fields (3 bytes) and values
+     * of the selected fields in the order of the fields of LrfParamsMask.
+     * Values of int and float fields are stored as 4 bytes in the byte order
+     * of the host, flags as 1 byte (0 or 1).
+     *
+     * @param data Pointer to data buffer. Must not be nullptr. The buffer
+     * must be valid for bufferSize bytes.
+     * @param bufferSize Size of the data buffer, bytes. Must be >= 72 (the
+     * size of data encoded with all fields selected).
+     * @param size Size of encoded data, bytes. Set to 0 if the method
+     * returns FALSE.
+     * @param mask Pointer to params mask. If nullptr all fields are encoded.
+     * @return TRUE if params encoded or FALSE if not (data is nullptr or the
+     * buffer is too small). Nothing is written to the buffer if FALSE.
      */
     bool encode(uint8_t* data, int bufferSize, int& size,
                 LrfParamsMask* mask = nullptr);
 
     /**
-     * @brief Decode params. The method doesn't decode initString.
-     * @param data Pointer to data.
-     * @brief dataSize Size of data.
-     * @return TRUE is params decoded or FALSE if not.
+     * @brief Decode (deserialize) params encoded by encode(...) method.
+     *
+     * The method checks data type, version and size of the data before
+     * reading each field. Fields which are not encoded are set to zero
+     * (FALSE for flags), initString is set to empty string. A flag is TRUE if
+     * its byte is not zero. Bytes after the last encoded field are ignored.
+     * Values of fields are not checked against any range.
+     *
+     * @param data Pointer to encoded data. Must not be nullptr.
+     * @param dataSize Size of the encoded data, bytes.
+     * @return TRUE if params decoded or FALSE if not. If FALSE is returned
+     * the object is not changed.
      */
     bool decode(uint8_t* data, int dataSize);
 };
@@ -223,20 +290,23 @@ public:
     /**
      * @brief Get lrf connection status. Lrf can be open but no response from
      * lrf hardware.
-     * @return TRUE if the lrf is open or FALSE.
+     * @return TRUE if the lrf is connected or FALSE.
      */
     virtual bool isLrfConnected() = 0;
 
     /**
      * @brief Set the lrf controller param.
+     * @note The implementation must be thread-safe.
      * @param id Param ID.
-     * @param value Param value.
+     * @param value Param value. The value is not checked by the interface:
+     * the implementation must validate it.
      * @return TRUE if the property set or FALSE.
      */
     virtual bool setParam(LrfParam id, float value) = 0;
 
     /**
      * @brief Get the lrf controller param.
+     * @note The implementation must be thread-safe.
      * @param id Param ID.
      * @return float Param value or -1 of the param not exists.
      */
@@ -244,12 +314,14 @@ public:
 
     /**
      * @brief Get the lrf controller params.
+     * @note The implementation must be thread-safe.
      * @param params Reference to LrfParams object.
      */
     virtual void getParams(LrfParams& params) = 0;
 
     /**
      * @brief Execute lrf command.
+     * @note The implementation must be thread-safe.
      * @param id Command ID.
      * @return TRUE if the command executed or FALSE.
      */
@@ -257,8 +329,10 @@ public:
 
     /**
      * @brief Encode set param command.
-     * @param data Pointer to data buffer. Must have size >= 11.
-     * @param size Size of encoded data.
+     * @param data Pointer to data buffer. Must not be nullptr. Must have
+     * size >= 11: the method writes 11 bytes.
+     * @param size Size of encoded data, bytes. Always 11 if data is not
+     * nullptr, 0 if data is nullptr (nothing is written in this case).
      * @param id Lrf parameter id.
      * @param value Lrf parameter value.
      */
@@ -267,19 +341,28 @@ public:
 
     /**
      * @brief Encode command.
-     * @param data Pointer to data buffer. Must have size >= 11.
-     * @param size Size of encoded data.
+     * @param data Pointer to data buffer. Must not be nullptr. Must have
+     * size >= 7: the method writes 7 bytes.
+     * @param size Size of encoded data, bytes. Always 7 if data is not
+     * nullptr, 0 if data is nullptr (nothing is written in this case).
      * @param id Lrf command ID.
      */
     static void encodeCommand(uint8_t* data, int& size, LrfCommand id);
 
     /**
      * @brief Decode command.
-     * @param data Pointer to command data.
-     * @param size Size of data.
-     * @param paramId Output command ID.
-     * @param commandId Output command ID.
-     * @return 0 - command decoded, 1 - set param command decoded, -1 - error.
+     *
+     * The method checks pointer, size, version and ID. The output arguments
+     * are changed only if the command is decoded.
+     *
+     * @param data Pointer to command data. Must not be nullptr.
+     * @param size Size of data, bytes. Must be 7 for a command and 11 for a
+     * set param command.
+     * @param paramId Output param ID (set param command).
+     * @param commandId Output command ID (command).
+     * @param value Output param value (set param command).
+     * @return 0 - command decoded, 1 - set param command decoded, -1 - error
+     * (invalid pointer, size, version, type or ID).
      */
     static int decodeCommand(
         uint8_t* data, int size, LrfParam& paramId,
@@ -287,11 +370,45 @@ public:
 
     /**
      * @brief Decode and execute command.
+     * @note The implementation must be thread-safe.
      * @param data Pointer to command data.
      * @param size Size of data.
      * @return TRUE if command decoded and executed or FALSE if not.
      */
     virtual bool decodeAndExecuteCommand(uint8_t* data, int size) = 0;
+
+protected:
+
+    /**
+     * @brief Default constructor. The class can be used as a base only.
+     */
+    Lrf() = default;
+
+    /**
+     * @brief Copy constructor.
+     * @param src Source object.
+     */
+    Lrf(const Lrf& src) = default;
+
+    /**
+     * @brief Move constructor.
+     * @param src Source object.
+     */
+    Lrf(Lrf&& src) = default;
+
+    /**
+     * @brief Copy assignment.
+     * @param src Source object.
+     * @return Reference to this object.
+     */
+    Lrf& operator= (const Lrf& src) = default;
+
+    /**
+     * @brief Move assignment.
+     * @param src Source object.
+     * @return Reference to this object.
+     */
+    Lrf& operator= (Lrf&& src) = default;
 };
 }
 }
