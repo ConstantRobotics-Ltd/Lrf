@@ -2,13 +2,10 @@
 #include <cstdint>
 #include <string>
 #include "ConfigReader.h"
-#include "LrfVersion.h"
 
 
 
-namespace cr
-{
-namespace lrf
+namespace rapidpixel
 {
 /**
  * @brief Enum of laser range finder params.
@@ -410,5 +407,16 @@ protected:
      */
     Lrf& operator= (Lrf&& src) = default;
 };
+}
+
+
+
+// Compatibility: the names of namespace rapidpixel are also available in
+// namespace cr::lrf.
+namespace cr
+{
+namespace lrf
+{
+using namespace ::rapidpixel;
 }
 }

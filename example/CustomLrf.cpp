@@ -104,7 +104,7 @@ bool assignGate(float& target, float value)
 
 
 /// Check values of the writable params.
-bool isValidParams(const cr::lrf::LrfParams& p)
+bool isValidParams(const rapidpixel::LrfParams& p)
 {
     return inRange(p.lowPowerMode, 0, MAX_LOW_POWER_MODE) &&
            inRange(p.pointerMode, 0, MAX_POINTER_MODE) &&
@@ -125,22 +125,22 @@ bool isValidParams(const cr::lrf::LrfParams& p)
 
 
 
-cr::lrf::CustomLrf::CustomLrf() = default;
+rapidpixel::CustomLrf::CustomLrf() = default;
 
 
 
-cr::lrf::CustomLrf::~CustomLrf() = default;
+rapidpixel::CustomLrf::~CustomLrf() = default;
 
 
 
-std::string cr::lrf::CustomLrf::getVersion()
+std::string rapidpixel::CustomLrf::getVersion()
 {
     return CUSTOM_LRF_VERSION;
 }
 
 
 
-bool cr::lrf::CustomLrf::openLrf(std::string)
+bool rapidpixel::CustomLrf::openLrf(std::string)
 {
     const std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -152,7 +152,7 @@ bool cr::lrf::CustomLrf::openLrf(std::string)
 
 
 
-bool cr::lrf::CustomLrf::initLrf(cr::lrf::LrfParams& params)
+bool rapidpixel::CustomLrf::initLrf(rapidpixel::LrfParams& params)
 {
     // Check the values before changing anything.
     if (!isValidParams(params))
@@ -177,7 +177,7 @@ bool cr::lrf::CustomLrf::initLrf(cr::lrf::LrfParams& params)
 
 
 
-void cr::lrf::CustomLrf::closeLrf()
+void rapidpixel::CustomLrf::closeLrf()
 {
     const std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -187,7 +187,7 @@ void cr::lrf::CustomLrf::closeLrf()
 
 
 
-bool cr::lrf::CustomLrf::isLrfOpen()
+bool rapidpixel::CustomLrf::isLrfOpen()
 {
     const std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -196,7 +196,7 @@ bool cr::lrf::CustomLrf::isLrfOpen()
 
 
 
-bool cr::lrf::CustomLrf::isLrfConnected()
+bool rapidpixel::CustomLrf::isLrfConnected()
 {
     const std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -205,7 +205,7 @@ bool cr::lrf::CustomLrf::isLrfConnected()
 
 
 
-bool cr::lrf::CustomLrf::setParam(cr::lrf::LrfParam id, float value)
+bool rapidpixel::CustomLrf::setParam(rapidpixel::LrfParam id, float value)
 {
     const std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -255,7 +255,7 @@ bool cr::lrf::CustomLrf::setParam(cr::lrf::LrfParam id, float value)
 
 
 
-float cr::lrf::CustomLrf::getParam(cr::lrf::LrfParam id)
+float rapidpixel::CustomLrf::getParam(rapidpixel::LrfParam id)
 {
     const std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -304,7 +304,7 @@ float cr::lrf::CustomLrf::getParam(cr::lrf::LrfParam id)
 
 
 
-void cr::lrf::CustomLrf::getParams(cr::lrf::LrfParams& params)
+void rapidpixel::CustomLrf::getParams(rapidpixel::LrfParams& params)
 {
     const std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -313,7 +313,7 @@ void cr::lrf::CustomLrf::getParams(cr::lrf::LrfParams& params)
 
 
 
-bool cr::lrf::CustomLrf::executeCommand(LrfCommand id)
+bool rapidpixel::CustomLrf::executeCommand(LrfCommand id)
 {
     const std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -335,7 +335,7 @@ bool cr::lrf::CustomLrf::executeCommand(LrfCommand id)
 
 
 
-bool cr::lrf::CustomLrf::decodeAndExecuteCommand(uint8_t* data, int size)
+bool rapidpixel::CustomLrf::decodeAndExecuteCommand(uint8_t* data, int size)
 {
     // Decode command. The decoder checks the pointer, the size, the version
     // and the IDs.

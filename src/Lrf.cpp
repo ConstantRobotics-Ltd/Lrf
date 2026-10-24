@@ -1,4 +1,5 @@
 #include "Lrf.h"
+#include "LrfVersion.h"
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -70,13 +71,13 @@ constexpr int SET_PARAM_SIZE{PARAM_VALUE_POS + VALUE_SIZE};
 /// Range of the command IDs: the IDs are enumerated from the first to the last
 /// value of LrfCommand. An ID read from the data outside of the range is an
 /// error, it is never passed on to the implementation.
-constexpr int MIN_COMMAND_ID{static_cast<int>(cr::lrf::LrfCommand::ARM)};
+constexpr int MIN_COMMAND_ID{static_cast<int>(rapidpixel::LrfCommand::ARM)};
 constexpr int MAX_COMMAND_ID{
-    static_cast<int>(cr::lrf::LrfCommand::MEASURE_DISTANCE_ONCE)};
+    static_cast<int>(rapidpixel::LrfCommand::MEASURE_DISTANCE_ONCE)};
 /// Range of the param IDs: the IDs are enumerated from the first to the last
 /// value of LrfParam.
-constexpr int MIN_PARAM_ID{static_cast<int>(cr::lrf::LrfParam::DISTANCE)};
-constexpr int MAX_PARAM_ID{static_cast<int>(cr::lrf::LrfParam::CUSTOM_3)};
+constexpr int MIN_PARAM_ID{static_cast<int>(rapidpixel::LrfParam::DISTANCE)};
+constexpr int MAX_PARAM_ID{static_cast<int>(rapidpixel::LrfParam::CUSTOM_3)};
 
 
 
@@ -93,7 +94,7 @@ struct FieldRef
 
 /// Get the table of LrfParams fields in the order they are stored in the
 /// encoded data (the same order as the bits of the mask).
-std::array<FieldRef, FIELDS_NUMBER> makeFieldTable(cr::lrf::LrfParams& p)
+std::array<FieldRef, FIELDS_NUMBER> makeFieldTable(rapidpixel::LrfParams& p)
 {
     return {{
         {&p.distance, VALUE_SIZE},
@@ -121,7 +122,7 @@ std::array<FieldRef, FIELDS_NUMBER> makeFieldTable(cr::lrf::LrfParams& p)
 
 /// Get the flags of the mask in the same order as makeFieldTable(...).
 std::array<bool, FIELDS_NUMBER> makeMaskTable(
-    const cr::lrf::LrfParamsMask& m)
+    const rapidpixel::LrfParamsMask& m)
 {
     return {{
         m.distance,
@@ -164,7 +165,7 @@ constexpr uint8_t maskBit(int field)
 
 
 
-bool cr::lrf::LrfParams::encode(
+bool rapidpixel::LrfParams::encode(
     uint8_t* data, int bufferSize, int& size, LrfParamsMask* mask)
 {
     // Check the pointer and the buffer size: the buffer must be able to hold
@@ -222,7 +223,7 @@ bool cr::lrf::LrfParams::encode(
 
 
 
-bool cr::lrf::LrfParams::decode(uint8_t* data, int dataSize)
+bool rapidpixel::LrfParams::decode(uint8_t* data, int dataSize)
 {
     // Check the pointer, the data size (header must be complete) and the
     // data type.
@@ -281,18 +282,18 @@ bool cr::lrf::LrfParams::decode(uint8_t* data, int dataSize)
 
 
 
-cr::lrf::Lrf::~Lrf() = default;
+rapidpixel::Lrf::~Lrf() = default;
 
 
 
-std::string cr::lrf::Lrf::getVersion()
+std::string rapidpixel::Lrf::getVersion()
 {
     return LRF_VERSION;
 }
 
 
 
-void cr::lrf::Lrf::encodeSetParamCommand(
+void rapidpixel::Lrf::encodeSetParamCommand(
     uint8_t* data, int& size, LrfParam id, float value)
 {
     // Reject null pointer, nothing is written.
@@ -316,7 +317,7 @@ void cr::lrf::Lrf::encodeSetParamCommand(
 
 
 
-void cr::lrf::Lrf::encodeCommand(uint8_t* data, int& size, LrfCommand id)
+void rapidpixel::Lrf::encodeCommand(uint8_t* data, int& size, LrfCommand id)
 {
     // Reject null pointer, nothing is written.
     if (data == nullptr)
@@ -338,7 +339,7 @@ void cr::lrf::Lrf::encodeCommand(uint8_t* data, int& size, LrfCommand id)
 
 
 
-int cr::lrf::Lrf::decodeCommand(
+int rapidpixel::Lrf::decodeCommand(
     uint8_t* data, int size, LrfParam& paramId,
     LrfCommand& commandId, float& value)
 {

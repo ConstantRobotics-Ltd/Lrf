@@ -98,9 +98,7 @@ src ------------------------ Folder with source code of the library.
 **Lrf** interface class declared in **Lrf.h** file. Class declaration:
 
 ```cpp
-namespace cr
-{
-namespace lrf
+namespace rapidpixel
 {
 class Lrf
 {
@@ -171,7 +169,6 @@ protected:
     /// Move assignment.
     Lrf& operator= (Lrf&& src) = default;
 };
-}
 }
 ```
 
@@ -429,9 +426,7 @@ virtual bool decodeAndExecuteCommand(uint8_t* data, int size) = 0;
 **LrfCommand** enum describes action LRF command. All commands must be supported by LRF controller. Enum declaration:
 
 ```cpp
-namespace cr
-{
-namespace lrf
+namespace rapidpixel
 {
 enum class LrfCommand
 {
@@ -442,7 +437,6 @@ enum class LrfCommand
     /// Measure distance once.
     MEASURE_DISTANCE_ONCE
 };
-}
 }
 ```
 
@@ -461,9 +455,7 @@ enum class LrfCommand
 **LrfParam** enum describes LRF parameters. Enum declaration:
 
 ```cpp
-namespace cr
-{
-namespace lrf
+namespace rapidpixel
 {
 enum class LrfParam
 {
@@ -506,7 +498,6 @@ enum class LrfParam
     CUSTOM_3
 };
 }
-}
 ```
 
 **Table 3** - LRF params description. Some params may be unsupported by LRF controller.
@@ -545,9 +536,7 @@ enum class LrfParam
 **LrfParams** interface class declared in **Lrf.h** file. Class declaration:
 
 ```cpp
-namespace cr
-{
-namespace lrf
+namespace rapidpixel
 {
 class LrfParams
 {
@@ -613,7 +602,6 @@ public:
     /// Decode (deserialize) params.
     bool decode(uint8_t* data, int dataSize);
 };
-}
 }
 ```
 
@@ -775,7 +763,7 @@ if (!out.decode(data, size))
 ```cpp
 // Write default params to file.
 LrfParams in;
-cr::utils::ConfigReader inConfig;
+rapidpixel::ConfigReader inConfig;
 if (!inConfig.set(in, "LrfParams") ||
     !inConfig.writeToFile("TestLrfParams.json"))
 {
@@ -784,7 +772,7 @@ if (!inConfig.set(in, "LrfParams") ||
 }
 
 // Read params from file.
-cr::utils::ConfigReader outConfig;
+rapidpixel::ConfigReader outConfig;
 if (!outConfig.readFromFile("TestLrfParams.json"))
 {
     std::cout << "Can't open config file" << std::endl;
@@ -976,9 +964,7 @@ Done!
 The **Lrf** class provides only an interface, data structures, and methods for encoding and decoding commands and params. To create your own implementation of the LRF controller, you must include the **Lrf** repository in your project (see [Connect to your project](#connect-to-your-project) section). The catalogue **example** (see [Library files](#library-files) section) includes an example of the design of the custom LRF controller. You must implement all the methods of the **Lrf** interface class. The methods **setParam(...)**, **getParam(...)**, **getParams(...)**, **executeCommand(...)** and **decodeAndExecuteCommand(...)** must be thread-safe: the example protects the params by a mutex. The example checks the values received from outside (the param value, the command ID, the initialization params) and rejects values out of the range of the param. Custom LRF class declaration:
 
 ```cpp
-namespace cr
-{
-namespace lrf
+namespace rapidpixel
 {
 /**
  * @brief Custom lrf controller.
@@ -1039,7 +1025,6 @@ private:
     /// Mutex to protect m_params.
     std::mutex m_mutex;
 };
-}
 }
 ```
 

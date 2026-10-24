@@ -10,16 +10,17 @@
 #include <utility>
 #include <vector>
 #include "Lrf.h"
+#include "LrfVersion.h"
 
 
 
 namespace
 {
-using cr::lrf::Lrf;
-using cr::lrf::LrfCommand;
-using cr::lrf::LrfParam;
-using cr::lrf::LrfParams;
-using cr::lrf::LrfParamsMask;
+using rapidpixel::Lrf;
+using rapidpixel::LrfCommand;
+using rapidpixel::LrfParam;
+using rapidpixel::LrfParams;
+using rapidpixel::LrfParamsMask;
 
 /// Size of the encoded params header: data type, version and mask, bytes.
 constexpr int PARAMS_HEADER_SIZE{6};
@@ -1070,7 +1071,7 @@ bool jsonReadWriteTest()
         // Write params to file.
         LrfParams in;
         prepareRandomParams(in, true);
-        cr::utils::ConfigReader inConfig;
+        rapidpixel::ConfigReader inConfig;
         if (!inConfig.set(in, "LrfParams") ||
             !inConfig.writeToFile(JSON_FILE_NAME))
         {
@@ -1078,7 +1079,7 @@ bool jsonReadWriteTest()
         }
 
         // Read params from file.
-        cr::utils::ConfigReader outConfig;
+        rapidpixel::ConfigReader outConfig;
         if (!outConfig.readFromFile(JSON_FILE_NAME))
         {
             return fail("Can't open config file");
@@ -1104,7 +1105,7 @@ bool jsonReadWriteTest()
 /// Check that the JSON document is rejected and the params are unchanged.
 bool jsonRejected(const std::string& document, bool readable)
 {
-    cr::utils::ConfigReader config;
+    rapidpixel::ConfigReader config;
     if (config.readFromString(document) != readable)
     {
         return false;
@@ -1137,7 +1138,7 @@ std::string jsonDocument(const std::string& logMode,
 bool jsonInvalidDocumentsTest()
 {
     // A valid document is read.
-    cr::utils::ConfigReader config;
+    rapidpixel::ConfigReader config;
     LrfParams out;
     if (!config.readFromString(jsonDocument("3", "1.5", "\"a\"")) ||
         !config.get(out, "LrfParams") || out.logMode != 3 ||

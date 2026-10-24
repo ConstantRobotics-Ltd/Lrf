@@ -7,9 +7,7 @@
 
 
 
-namespace cr
-{
-namespace lrf
+namespace rapidpixel
 {
 /**
  * @brief Custom lrf controller.
@@ -141,5 +139,4 @@ private:
     /// Mutex to protect m_params.
     std::mutex m_mutex;
 };
-}
 }
