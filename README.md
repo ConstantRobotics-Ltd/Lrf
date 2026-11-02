@@ -50,6 +50,8 @@
 
 **Lrf** C++ library provides standard interface as well defines data structures and rules for different laser range finder (LRF) software controllers. **Lrf** interface class does nothing, just provides interface and provides methods to encode / decode commands and encode / decode params. Different LRF controllers inherit interface from **Lrf** C++ class. **Lrf.h** file contains list of data structures ([LrfCommand](#lrfcommand-enum) enum, [LrfParam](#lrfparam-enum) enum and [LrfParams](#lrfparams-class-description) class) and [Lrf](#lrf-interface-class-description) class declaration. [LrfCommand](#lrfcommand-enum) enum contains IDs of action commands supported by **Lrf** class. [LrfParam](#lrfparam-enum) enum contains IDs of parameters supported by **Lrf** class. [LrfParams](#lrfparams-class-description) class contains fields for LRF parameters values and provides methods to encode/decode and read/write LRF parameters from JSON file. All LRF controllers should include params and commands listed in **Lrf.h** file. **Lrf** interface class depends only on [ConfigReader](https://rapidpixel.constantrobotics.com/docs/Service/ConfigReader.html) library (provides methods to read / write JSON config files). The **ConfigReader** library must be cloned next to the **Lrf** repository (see [Build and connect to your project](#build-and-connect-to-your-project) section). It uses C++17 standard.
 
+**Lrf** is general-purpose software: it is not tied to any sector or application, and the developer of a program decides what the program does with it.
+
 
 
 # Versions
